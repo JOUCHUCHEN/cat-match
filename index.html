@@ -3,268 +3,255 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cat Match Game</title>
+<title>抗妖消消樂</title>
 <style>
   body {
-    background-color: #fff8f0;
-    font-family: "Comic Sans MS", sans-serif;
-    text-align: center;
-    user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: #222;
+    color: white;
+    font-family: "Microsoft JhengHei", sans-serif;
+    margin: 0;
   }
-  #game {
+
+  h1 { margin-bottom: 10px; }
+
+  #score {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+  }
+
+  #board {
     display: grid;
     grid-template-columns: repeat(6, 60px);
     grid-template-rows: repeat(6, 60px);
     gap: 5px;
-    justify-content: center;
-    margin-top: 40px;
+    touch-action: none;
   }
+
   .cell {
     width: 60px;
     height: 60px;
+    background-size: cover;
     border-radius: 10px;
-    background-color: #fff;
-    box-shadow: 0 0 4px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    touch-action: none;
+    transition: transform 0.3s;
   }
-  .cell img {
-    width: 50px;
-    height: 50px;
-    transition: transform 0.2s;
-    pointer-events: none;
+
+  .highlight {
+    transform: scale(1.1);
+    z-index: 10;
   }
-  .cell.dragging {
-    opacity: 0.6;
-  }
-  #score {
-    font-size: 20px;
-    margin-top: 20px;
-  }
+
   #gameOver {
+    font-size: 2em;
+    color: #ff6666;
     display: none;
     margin-top: 20px;
-    font-size: 24px;
-    color: red;
-  }
-  #restart {
-    display: none;
-    margin-top: 10px;
-    font-size: 18px;
-    background: #ffa;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 10px;
-    cursor: pointer;
   }
 </style>
 </head>
 <body>
-  <h1>🐾 Cat Match Game 🐾</h1>
-  <div id="game"></div>
-  <div id="score">分數：0</div>
-  <div id="gameOver">💀 遊戲結束！</div>
-  <button id="restart" onclick="restartGame()">重新開始</button>
+  <h1>抗妖消消樂</h1>
+  <div id="score">抗妖值：0</div>
+  <div id="board"></div>
+  <div id="gameOver">👾 遊戲結束！</div>
 
 <script>
-const gridSize = 6;
-const images = ["1.PNG","2.PNG","3.PNG","4.PNG","5.PNG","6.png"];
-let grid = [];
+const rows = 6, cols = 6;
+const types = 6;
+let board = [];
 let score = 0;
-let dragging = null;
-let draggingElement = null;
-let gameOver = false;
-const game = document.getElementById("game");
+let isSwapping = false;
+let dragStart = null;
+let dragEnd = null;
 
-function createGrid() {
-  grid = [];
-  game.innerHTML = "";
-  for (let i = 0; i < gridSize * gridSize; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
-    const img = document.createElement("img");
-    img.src = images[Math.floor(Math.random() * images.length)];
-    cell.appendChild(img);
-    cell.dataset.index = i;
-    addDragTouchEvents(cell);
-    game.appendChild(cell);
-    grid.push(cell);
+const boardEl = document.getElementById("board");
+const scoreEl = document.getElementById("score");
+const gameOverEl = document.getElementById("gameOver");
+
+function randomType() { return Math.floor(Math.random() * types) + 1; }
+
+function initBoard() {
+  board = [];
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    for (let c = 0; c < cols; c++) row.push(randomType());
+    board.push(row);
   }
-  setTimeout(() => checkAndRemoveMatches(true), 200);
+  renderBoard();
+  removeMatches();
 }
 
-function addDragTouchEvents(cell) {
-  cell.addEventListener("mousedown", startDrag);
-  cell.addEventListener("touchstart", startDrag);
-  cell.addEventListener("mouseup", endDrag);
-  cell.addEventListener("touchend", endDrag);
-  cell.addEventListener("mousemove", moveDrag);
-  cell.addEventListener("touchmove", moveDrag);
-}
-
-function startDrag(e) {
-  if (gameOver) return;
-  e.preventDefault();
-  dragging = e.currentTarget;
-  dragging.classList.add("dragging");
-
-  draggingElement = dragging.querySelector("img").cloneNode();
-  draggingElement.style.position = "fixed";
-  draggingElement.style.pointerEvents = "none";
-  draggingElement.style.zIndex = "1000";
-  draggingElement.style.width = "50px";
-  draggingElement.style.height = "50px";
-  document.body.appendChild(draggingElement);
-  moveDrag(e);
-}
-
-function moveDrag(e) {
-  if (!draggingElement) return;
-  let x, y;
-  if (e.touches && e.touches[0]) {
-    x = e.touches[0].clientX;
-    y = e.touches[0].clientY;
-  } else {
-    x = e.clientX;
-    y = e.clientY;
-  }
-  draggingElement.style.left = x - 25 + "px";
-  draggingElement.style.top = y - 25 + "px";
-}
-
-function endDrag(e) {
-  if (!dragging) return;
-  dragging.classList.remove("dragging");
-  if (draggingElement) {
-    draggingElement.remove();
-    draggingElement = null;
-  }
-
-  let target = document.elementFromPoint(
-    e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
-    e.changedTouches ? e.changedTouches[0].clientY : e.clientY
-  );
-
-  if (target && target.classList.contains("cell") && target !== dragging) {
-    const cellA = dragging;
-    const cellB = target;
-    const imgA = cellA.querySelector("img").src;
-    const imgB = cellB.querySelector("img").src;
-
-    // 暫時交換
-    swapCells(cellA, cellB);
-
-    // 檢查是否能消除
-    if (!checkAndRemoveMatches()) {
-      // 不能消 → 換回
-      setTimeout(() => {
-        cellA.querySelector("img").src = imgA;
-        cellB.querySelector("img").src = imgB;
-      }, 200);
+function renderBoard() {
+  boardEl.innerHTML = "";
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const div = document.createElement("div");
+      div.classList.add("cell");
+      div.style.backgroundImage = `url(${board[r][c]}.png)`;
+      div.dataset.row = r;
+      div.dataset.col = c;
+      boardEl.appendChild(div);
     }
   }
-  dragging = null;
 }
 
-function swapCells(cellA, cellB) {
-  const imgA = cellA.querySelector("img").src;
-  const imgB = cellB.querySelector("img").src;
-  cellA.querySelector("img").src = imgB;
-  cellB.querySelector("img").src = imgA;
+function swap(r1, c1, r2, c2) {
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
 }
 
-function checkAndRemoveMatches(initial = false) {
+function checkMatches() {
   let matched = [];
-  // 橫向檢查
-  for (let r = 0; r < gridSize; r++) {
-    let row = [];
-    for (let c = 0; c < gridSize; c++) {
-      row.push(r * gridSize + c);
+  // 檢查橫向
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols - 2; c++) {
+      let t = board[r][c];
+      if (t && t === board[r][c+1] && t === board[r][c+2]) {
+        let temp = [[r,c],[r,c+1],[r,c+2]];
+        let cc = c+3;
+        while(cc < cols && board[r][cc] === t){
+          temp.push([r,cc]);
+          cc++;
+        }
+        matched = matched.concat(temp);
+        c = cc-1;
+      }
     }
-    matched.push(...findMatches(row));
   }
-  // 直向檢查
-  for (let c = 0; c < gridSize; c++) {
-    let col = [];
-    for (let r = 0; r < gridSize; r++) {
-      col.push(r * gridSize + c);
+  // 檢查縱向
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows - 2; r++) {
+      let t = board[r][c];
+      if (t && t === board[r+1][c] && t === board[r+2][c]) {
+        let temp = [[r,c],[r+1,c],[r+2,c]];
+        let rr = r+3;
+        while(rr < rows && board[rr][c] === t){
+          temp.push([rr,c]);
+          rr++;
+        }
+        matched = matched.concat(temp);
+        r = rr-1;
+      }
     }
-    matched.push(...findMatches(col));
   }
+  return matched;
+}
 
-  matched = [...new Set(matched)];
-  if (matched.length === 0) {
-    if (!initial && !hasPossibleMove()) endGame();
-    return false;
+function removeMatches() {
+  let matches = checkMatches();
+  if (matches.length === 0) {
+    if (!canMove()) {
+      gameOverEl.style.display = "block";
+    }
+    return;
   }
-
-  score += matched.length; // ✅ 根據實際消掉格數加分
-  document.getElementById("score").textContent = "分數：" + score;
-
-  matched.forEach(i => {
-    const img = grid[i].querySelector("img");
-    img.style.transform = "scale(0)";
-    setTimeout(() => {
-      img.src = images[Math.floor(Math.random() * images.length)];
-      img.style.transform = "scale(1)";
-    }, 300);
+  let cells = document.querySelectorAll(".cell");
+  matches.forEach(([r, c]) => {
+    const idx = r * cols + c;
+    const cell = cells[idx];
+    if (cell) {
+      cell.classList.add("highlight");
+      setTimeout(() => { cell.style.opacity = "0"; }, 200);
+    }
+    board[r][c] = null;
   });
-
-  setTimeout(checkAndRemoveMatches, 400);
-  return true;
+  score += matches.length;
+  scoreEl.textContent = `抗妖值：${score}`;
+  setTimeout(dropAndFill, 400);
 }
 
-// 尋找相同圖案串（>=3）
-function findMatches(indices) {
-  let result = [];
-  let count = 1;
-  for (let i = 1; i < indices.length; i++) {
-    const prev = grid[indices[i - 1]].querySelector("img").src;
-    const curr = grid[indices[i]].querySelector("img").src;
-    if (prev === curr) count++;
-    else {
-      if (count >= 3) result.push(...indices.slice(i - count, i));
-      count = 1;
+function dropAndFill() {
+  for (let c = 0; c < cols; c++) {
+    for (let r = rows - 1; r >= 0; r--) {
+      if (!board[r][c]) {
+        for (let rr = r - 1; rr >= 0; rr--) {
+          if (board[rr][c]) {
+            board[r][c] = board[rr][c];
+            board[rr][c] = null;
+            break;
+          }
+        }
+        if (!board[r][c]) board[r][c] = randomType();
+      }
     }
   }
-  if (count >= 3) result.push(...indices.slice(indices.length - count));
-  return result;
+  renderBoard();
+  setTimeout(removeMatches, 200);
 }
 
-// 是否還有可能移動
-function hasPossibleMove() {
-  for (let i = 0; i < grid.length; i++) {
-    const right = i + 1;
-    const down = i + gridSize;
-    if (right < grid.length && Math.floor(right / gridSize) === Math.floor(i / gridSize)) {
-      swapCells(grid[i], grid[right]);
-      if (detectMatch()) { swapCells(grid[i], grid[right]); return true; }
-      swapCells(grid[i], grid[right]);
-    }
-    if (down < grid.length) {
-      swapCells(grid[i], grid[down]);
-      if (detectMatch()) { swapCells(grid[i], grid[down]); return true; }
-      swapCells(grid[i], grid[down]);
+function canMove() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (c < cols - 1) {
+        swap(r, c, r, c + 1);
+        if (checkMatches().length > 0) { swap(r, c, r, c + 1); return true; }
+        swap(r, c, r, c + 1);
+      }
+      if (r < rows - 1) {
+        swap(r, c, r + 1, c);
+        if (checkMatches().length > 0) { swap(r, c, r + 1, c); return true; }
+        swap(r, c, r + 1, c);
+      }
     }
   }
   return false;
 }
 
-// 檢查是否存在三連
-function detectMatch() {
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize - 2; c++) {
-      const i = r * gridSize + c;
-      const img1 = grid[i].querySelector("img").src;
-      const img2 = grid[i + 1].querySelector("img").src;
-      const img3 = grid[i + 2].querySelector("img").src;
-      if (img1 === img2 && img2 === img3) return true;
+function getCell(e) {
+  const touch = e.touches ? e.touches[0] : e;
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (!target || !target.classList.contains("cell")) return null;
+  return target;
+}
+
+boardEl.addEventListener("mousedown", startDrag);
+boardEl.addEventListener("touchstart", startDrag);
+boardEl.addEventListener("mouseup", endDrag);
+boardEl.addEventListener("touchend", endDrag);
+
+function startDrag(e) {
+  const cell = getCell(e);
+  if (!cell) return;
+  dragStart = { 
+    row: +cell.dataset.row, 
+    col: +cell.dataset.col,
+    element: cell
+  };
+  cell.classList.add("highlight");
+}
+
+function endDrag(e) {
+  if (!dragStart) return;
+  const start = dragStart;
+  const endCell = getCell(e);
+  start.element.classList.remove("highlight");
+  if (!endCell) { dragStart = null; return; }
+
+  const end = { row: +endCell.dataset.row, col: +endCell.dataset.col };
+
+  const dr = end.row - start.row;
+  const dc = end.col - start.col;
+  if (Math.abs(dr) + Math.abs(dc) !== 1) { dragStart = null; return; }
+
+  swap(start.row, start.col, end.row, end.col);
+  renderBoard();
+
+  setTimeout(() => {
+    if (checkMatches().length === 0) {
+      swap(start.row, start.col, end.row, end.col); // 無配對 → 還原
+      renderBoard();
+    } else {
+      removeMatches();
     }
-  }
-  for (let c = 0; c < gridSize; c++) {
-    for (let r = 0; r < gridSize - 2; r++) {
-      const i = r * gridSize + c;
-      const img1 = grid[i].querySelector("img").sr
+  }, 200);
+
+  dragStart = null;
+}
+
+initBoard();
+</script>
+</body>
+</html>
