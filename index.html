@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cat Match Game</title>
+<style>
+  body {
+    background-color: #fff8f0;
+    font-family: "Comic Sans MS", sans-serif;
+    text-align: center;
+    user-select: none;
+  }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(6, 60px);
+    grid-template-rows: repeat(6, 60px);
+    gap: 5px;
+    justify-content: center;
+    margin-top: 40px;
+  }
+  .cell {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    background-color: #fff;
+    box-shadow: 0 0 4px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;
+  }
+  .cell img {
+    width: 50px;
+    height: 50px;
+    transition: transform 0.2s;
+    pointer-events: none;
+  }
+  .cell.dragging {
+    opacity: 0.7;
+  }
+  #score {
+    font-size: 20px;
+    margin-top: 20px;
+  }
+  #gameOver {
+    display: none;
+    margin-top: 20px;
+    font-size: 24px;
+    color: red;
+  }
+  #restart {
+    display: none;
+    margin-top: 10px;
+    font-size: 18px;
+    background: #ffa;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>🐾 Cat Match Game 🐾</h1>
+  <div id="game"></div>
+  <div id="score">分數：0</div>
+  <div id="gameOver">💀 遊戲結束！</div>
+  <button id="restart" onclick="restartGame()">重新開始</button>
+
+<script>
+const gridSize = 6;
+const images = ["1.PNG","2.PNG","3.PNG","4.PNG","5.PNG","6.png"];
+let grid = [];
+let score = 0;
+let dragging = null;
+let draggingElement = null;
+let gameOver = false;
+const game = document.getElementById("game");
+
+function createGrid() {
+  grid = [];
+  game.innerHTML = "";
+  for (let i = 0; i < gridSize * gridSize; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    const img = document.createElement("img");
+    img.src = images[Math.floor(Math.random() * images.length)];
+    cell.appendChild(img);
+    cell.dataset.index = i;
+    addDragTouchEvents(cell);
+    game.appendChild(cell);
+    grid.push(cell);
+  }
+  setTimeout(() => checkAndRemoveMatches(true), 200);
+}
+
+function addDragTouchEvents(cell) {
+  cell.addEventListener("mousedown", startDrag);
+  cell.addEventListener("touchstart", startDrag);
+  cell.addEventListener("mouseup", endDrag);
+  cell.addEventListener("touchend", endDrag);
+  cell.addEventListener("mousemove", moveDrag);
+  cell.addEventListener("touchmove", moveDrag);
+}
+
+function startDrag(e) {
+  if (gameOver) return;
+  e.preventDefault();
+  dragging = e.currentTarget;
+  dragging.classList.add("dragging");
+  draggingElement = dragging.querySelector("img").cloneNode();
+  draggingElement.style.position = "fixed";
+  draggingElement.style.pointerEvents = "none";
+  draggingElement.style.zIndex = "1000";
+  draggingElement.style.width = "50px";
+  draggingElement.style.height = "50px";
+  document.body.appendChild(draggingElement);
+  moveDrag(e);
+}
+
+function moveDrag(e) {
+  if (!draggingElement) return;
+  let x, y;
+  if (e.touches && e.touches[0]) {
+    x = e.touches[0].clientX;
+    y = e.touches[0].clientY;
+  } else {
+    x = e.clientX;
+    y = e.clientY;
+  }
+  draggingElement.style.left = x - 25 + "px";
+  draggingElement.style.top = y - 25 + "px";
+}
+
+function endDrag(e) {
+  if (!dragging) return;
+  dragging.classList.remove("dragging");
+  if (draggingElement) {
+    draggingElement.remove();
+    draggingElement = null;
+  }
+
+  let target = document.elementFromPoint(
+    e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
+    e.changedTouches ? e.changedTouches[0].clientY : e.clientY
+  );
+  if (target && target.classList.contains("cell") && target !== dragging) {
+    swapCells(dragging, target);
+    if (!checkAndRemoveMatches()) {
+      // 無法消除 → 換回原位
+      setTimeout(() => swapCells(dragging, target), 200);
+    }
+  }
+  dragging = null;
+}
+
+function swapCells(cellA, cellB) {
+  const imgA = cellA.querySelector("img").src;
+  const imgB = cellB.querySelector("img").src;
+  cellA.querySelector("img").src = imgB;
+  cellB.querySelector("img").src = imgA;
+}
+
+function checkAndRemoveMatches(initial = false) {
+  let matched = [];
+  // 橫向
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize - 2; c++) {
+      const i = r * gridSize + c;
+      const img1 = grid[i].querySelector("img").src;
+      const img2 = grid[i + 1].querySelector("img").src;
+      const img3 = grid[i + 2].querySelector("img").src;
+      if (img1 === img2 && img2 === img3) {
+        matched.push(i, i + 1, i + 2);
+      }
+    }
+  }
+  // 直向
+  for (let c = 0; c < gridSize; c++) {
+    for (let r = 0; r < gridSize - 2; r++) {
+      const i = r * gridSize + c;
+      const img1 = grid[i].querySelector("img").src;
+      const img2 = grid[i + gridSize].querySelector("img").src;
+      const img3 = grid[i + gridSize * 2].querySelector("img").src;
+      if (img1 === img2 && img2 === img3) {
+        matched.push(i, i + gridSize, i + gridSize * 2);
+      }
+    }
+  }
+
+  matched = [...new Set(matched)];
+  if (matched.length === 0) {
+    // 無法再消除 → 判定遊戲結束（排除剛生成時）
+    if (!initial && !hasPossibleMove()) {
+      endGame();
+    }
+    return false;
+  }
+
+  score += matched.length * 10;
+  document.getElementById("score").textContent = "分數：" + score;
+
+  matched.forEach(i => {
+    const img = grid[i].querySelector("img");
+    img.style.transform = "scale(0)";
+    setTimeout(() => {
+      img.src = images[Math.floor(Math.random() * images.length)];
+      img.style.transform = "scale(1)";
+    }, 300);
+  });
+
+  setTimeout(checkAndRemoveMatches, 400);
+  return true;
+}
+
+// 判斷是否還有可能的移動（避免提早結束）
+function hasPossibleMove() {
+  for (let i = 0; i < grid.length; i++) {
+    const right = i + 1;
+    const down = i + gridSize;
+    if (right < grid.length && Math.floor(right / gridSize) === Math.floor(i / gridSize)) {
+      swapCells(grid[i], grid[right]);
+      if (detectMatch()) { swapCells(grid[i], grid[right]); return true; }
+      swapCells(grid[i], grid[right]);
+    }
+    if (down < grid.length) {
+      swapCells(grid[i], grid[down]);
+      if (detectMatch()) { swapCells(grid[i], grid[down]); return true; }
+      swapCells(grid[i], grid[down]);
+    }
+  }
+  return false;
+}
+
+// 檢查是否出現三連
+function detectMatch() {
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize - 2; c++) {
+      const i = r * gridSize + c;
+      const img1 = grid[i].querySelector("img").src;
+      const img2 = grid[i + 1].querySelector("img").src;
+      const img3 = grid[i + 2].querySelector("img").src;
+      if (img1 === img2 && img2 === img3) return true;
+    }
+  }
+  for (let c = 0; c < gridSize; c++) {
+    for (let r = 0; r < gridSize - 2; r++) {
+      const i = r * gridSize + c;
+      const img1 = grid[i].querySelector("img").src;
+      const img2 = grid[i + gridSize].querySelector("img").src;
+      const img3 = grid[i + gridSize * 2].querySelector("img").src;
+      if (img1 === img2 && img2 === img3) return true;
+    }
+  }
+  return false;
+}
+
+function endGame() {
+  gameOver = true;
+  document.getElementById("gameOver").style.display = "block";
+  document.getElementById("restart").style.display = "inline-block";
+}
+
+function restartGame() {
+  gameOver = false;
+  score = 0;
+  document.getElementById("gameOver").style.display = "none";
+  document.getElementById("restart").style.display = "none";
+  document.getElementById("score").textContent = "分數：0";
+  createGrid();
+}
+
+createGrid();
+</script>
+</body>
+</html>
