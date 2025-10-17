@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 v2 </title>
+<title>喵嗚消消樂 8x8 v3</title>
 <style>
 body {
   text-align: center;
@@ -150,15 +150,16 @@ function dragMove(e) {
   const dr = Math.abs(endRow - startRow);
   const dc = Math.abs(endCol - startCol);
 
-  // 只允許一次交換
+  // 僅允許相鄰交換
   if ((dr + dc) === 1) {
-    swapCells(startRow, startCol, endRow, endCol);
-    const matches = checkMatches();
-    if (matches.length > 0) {
-      handleMatches(matches);
-    } else {
-      swapCells(startRow, startCol, endRow, endCol);
-    }
+    animateSwap(startRow, startCol, endRow, endCol, () => {
+      const matches = checkMatches();
+      if (matches.length > 0) {
+        handleMatches(matches);
+      } else {
+        animateSwap(endRow, endCol, startRow, startCol); // 交換回來
+      }
+    });
     dragEnd();
   }
 }
@@ -172,57 +173,106 @@ function dragEnd() {
   document.removeEventListener("touchend", dragEnd);
 }
 
-function swapCells(r1,c1,r2,c2){
-  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
-  renderBoard();
+// 🔹 加入交換動畫
+function animateSwap(r1, c1, r2, c2, callback) {
+  const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
+  const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
+  if (!cell1 || !cell2) return;
+
+  const rect1 = cell1.getBoundingClientRect();
+  const rect2 = cell2.getBoundingClientRect();
+  const dx = rect2.left - rect1.left;
+  const dy = rect2.top - rect1.top;
+
+  // 動畫過程
+  cell1.style.transition = "transform 0.25s ease";
+  cell2.style.transition = "transform 0.25s ease";
+  cell1.style.transform = `translate(${dx}px, ${dy}px)`;
+  cell2.style.transform = `translate(${-dx}px, ${-dy}px)`;
+
+  setTimeout(() => {
+    cell1.style.transition = "";
+    cell2.style.transition = "";
+    cell1.style.transform = "";
+    cell2.style.transform = "";
+    swapCellsSimple(r1, c1, r2, c2);
+    renderBoard();
+    if (callback) callback();
+  }, 250);
 }
 
+function swapCellsSimple(r1,c1,r2,c2){
+  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+}
+
+// 🔹 找出所有連線組
 function checkMatches() {
   const matches = [];
+  // 橫向
   for (let r=0;r<rows;r++){
-    let count = 1;
+    let count=1;
     for (let c=1;c<cols;c++){
       if(board[r][c]===board[r][c-1]) count++;
-      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
+      else {
+        if(count>=3) matches.push({row:r, start:c-count, end:c-1});
+        count=1;
+      }
     }
-    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
+    if(count>=3) matches.push({row:r, start:cols-count, end:cols-1});
   }
+  // 直向
   for (let c=0;c<cols;c++){
     let count=1;
-    for(let r=1;r<rows;r++){
+    for (let r=1;r<rows;r++){
       if(board[r][c]===board[r-1][c]) count++;
-      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
+      else {
+        if(count>=3) matches.push({col:c, start:r-count, end:r-1});
+        count=1;
+      }
     }
-    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
+    if(count>=3) matches.push({col:c, start:rows-count, end:rows-1});
   }
   return matches;
 }
 
+// 🔹 依組大小給分 (+1, +2, +3)
 function clearMatches(matches){
   const cleared = new Set();
-  matches.forEach(([r,c])=>{
-    const key = r+'-'+c;
-    if(!cleared.has(key)){
-      board[r][c] = null;
-      showPlusEffect(r,c);
-      cleared.add(key);
+  let totalAdd = 0;
+  matches.forEach(m=>{
+    let cells = [];
+    if(m.row!==undefined){
+      for(let c=m.start;c<=m.end;c++) cells.push([m.row,c]);
+    } else {
+      for(let r=m.start;r<=m.end;r++) cells.push([r,m.col]);
     }
+    const groupSize = cells.length;
+    const add = groupSize>=5?3:groupSize===4?2:1;
+    totalAdd += add;
+    cells.forEach(([r,c])=>{
+      const key = r+'-'+c;
+      if(!cleared.has(key)){
+        board[r][c]=null;
+        showPlusEffect(r,c,add);
+        cleared.add(key);
+      }
+    });
   });
-  score += cleared.size;
+  score += totalAdd;
   scoreEl.textContent = score;
 }
 
 function applyGravity(){
-  let moved = false;
+  let moved=false;
   for(let c=0;c<cols;c++){
     for(let r=rows-1;r>=0;r--){
       if(board[r][c]===null){
-        let upper = r-1;
+        let upper=r-1;
         while(upper>=0 && board[upper][c]===null) upper--;
         if(upper>=0){
-          board[r][c] = board[upper][c];
-          board[upper][c] = null;
-          moved = true;
+          board[r][c]=board[upper][c];
+          board[upper][c]=null;
+          moved=true;
         }
       }
     }
@@ -235,7 +285,7 @@ function refillBoard(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
       if(board[r][c]===null){
-        board[r][c] = randomIcon();
+        board[r][c]=randomIcon();
       }
     }
   }
@@ -245,23 +295,23 @@ function refillBoard(){
 function handleMatches(matches){
   clearMatches(matches);
   setTimeout(()=>{
-    let moved = applyGravity();
+    let moved=applyGravity();
     setTimeout(()=>{
       refillBoard();
-      const newMatches = checkMatches();
+      const newMatches=checkMatches();
       if(newMatches.length>0) handleMatches(newMatches);
       else if(!hasPossibleMoves()) gameOver();
-    }, moved? 250:0);
+    }, moved?250:0);
   },350);
 }
 
-function showPlusEffect(r,c){
+function showPlusEffect(r,c,add){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if(!cell) return;
   const rect=cell.getBoundingClientRect();
   const plus=document.createElement("div");
   plus.classList.add("plus-text");
-  plus.textContent="+1";
+  plus.textContent="+"+add;
   plus.style.left=rect.left+"px";
   plus.style.top=rect.top+"px";
   document.body.appendChild(plus);
@@ -271,24 +321,4 @@ function showPlusEffect(r,c){
 function hasPossibleMoves(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
-      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
-    }
-  }
-  return false;
-}
-
-function swapCellsSimple(r1,c1,r2,c2){
-  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
-}
-
-function gameOver(){
-  alert("遊戲結束！最終喵嗚值：" + score);
-}
-
-initBoard();
-</script>
-
-</body>
-</html>
-
+      if(r<rows-1){ swapCellsSimple(
