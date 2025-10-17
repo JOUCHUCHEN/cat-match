@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 v3</title>
+<title>喵嗚消消樂 8x8</title>
 <style>
 body {
   text-align: center;
@@ -37,7 +37,7 @@ body {
   border-radius: 10%;
   cursor: grab;
   position: relative;
-  transition: transform 0.5s ease, background-image 0.5s ease;
+  transition: transform 0.35s ease, background-image 0.35s ease;
 }
 
 .cell.dragging {
@@ -321,4 +321,19 @@ function showPlusEffect(r,c,add){
 function hasPossibleMoves(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(r<rows-1){ swapCellsSimple(
+      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
+      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
+    }
+  }
+  return false;
+}
+
+function gameOver(){
+  alert("遊戲結束！最終喵嗚值：" + score);
+}
+
+initBoard();
+</script>
+
+</body>
+</html>
