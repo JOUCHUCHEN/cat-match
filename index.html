@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8</title>
+<title>喵嗚消消樂 8x8 v1 </title>
 <style>
 body {
   text-align: center;
@@ -40,12 +40,9 @@ body {
   transition: transform 0.35s ease, background-image 0.35s ease;
 }
 
-.dragging {
-  opacity: 0.8;
+.cell.dragging {
   transform: scale(1.2);
-  z-index: 1000;
-  position: fixed;
-  pointer-events: none;
+  z-index: 10;
 }
 
 .score {
@@ -121,9 +118,7 @@ function renderBoard() {
   }
 }
 
-let clone = null;
-let startRow, startCol;
-let offsetX, offsetY;
+let startRow, startCol, currentCell;
 
 function addDragEvents(cell) {
   cell.addEventListener("mousedown", dragStart);
@@ -132,21 +127,10 @@ function addDragEvents(cell) {
 
 function dragStart(e) {
   e.preventDefault();
-  const target = e.target;
-  startRow = +target.dataset.row;
-  startCol = +target.dataset.col;
-
-  clone = target.cloneNode(true);
-  clone.classList.add("dragging");
-  document.body.appendChild(clone);
-
-  const rect = target.getBoundingClientRect();
-  const x = e.touches ? e.touches[0].clientX : e.clientX;
-  const y = e.touches ? e.touches[0].clientY : e.clientY;
-  offsetX = x - rect.left;
-  offsetY = y - rect.top;
-  clone.style.left = (x - offsetX) + "px";
-  clone.style.top = (y - offsetY) + "px";
+  currentCell = e.target;
+  currentCell.classList.add("dragging");
+  startRow = +currentCell.dataset.row;
+  startCol = +currentCell.dataset.col;
 
   document.addEventListener("mousemove", dragMove);
   document.addEventListener("mouseup", dragEnd);
@@ -155,54 +139,37 @@ function dragStart(e) {
 }
 
 function dragMove(e) {
-  if (!clone) return;
+  if (!currentCell) return;
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const y = e.touches ? e.touches[0].clientY : e.clientY;
-  clone.style.left = (x - offsetX) + "px";
-  clone.style.top = (y - offsetY) + "px";
-}
+  const over = document.elementFromPoint(x, y);
+  if (!over || !over.classList.contains("cell")) return;
 
-function dragEnd(e) {
-  if (!clone) return;
-  const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-  const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-  const dropCell = document.elementFromPoint(x, y);
-  if (!dropCell || !dropCell.classList.contains("cell")) {
-    animateReturn(clone, startRow, startCol);
-    clone = null;
-    return;
-  }
-  const endRow = +dropCell.dataset.row;
-  const endCol = +dropCell.dataset.col;
+  const endRow = +over.dataset.row;
+  const endCol = +over.dataset.col;
   const dr = Math.abs(endRow - startRow);
   const dc = Math.abs(endCol - startCol);
+
+  // 只允許一次交換
   if ((dr + dc) === 1) {
     swapCells(startRow, startCol, endRow, endCol);
     const matches = checkMatches();
     if (matches.length > 0) {
       handleMatches(matches);
-      clone.remove();
     } else {
       swapCells(startRow, startCol, endRow, endCol);
-      animateReturn(clone, startRow, startCol);
     }
-  } else {
-    animateReturn(clone, startRow, startCol);
+    dragEnd();
   }
+}
+
+function dragEnd() {
+  if (currentCell) currentCell.classList.remove("dragging");
+  currentCell = null;
   document.removeEventListener("mousemove", dragMove);
   document.removeEventListener("mouseup", dragEnd);
   document.removeEventListener("touchmove", dragMove);
   document.removeEventListener("touchend", dragEnd);
-}
-
-function animateReturn(cloneEl, r, c) {
-  const targetCell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-  if (!targetCell) { cloneEl.remove(); return; }
-  const rect = targetCell.getBoundingClientRect();
-  cloneEl.style.transition = "all 0.35s ease";
-  cloneEl.style.left = rect.left + "px";
-  cloneEl.style.top = rect.top + "px";
-  setTimeout(() => cloneEl.remove(), 360);
 }
 
 function swapCells(r1,c1,r2,c2){
