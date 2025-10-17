@@ -3,55 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>貓咪消消樂 8x8 連鎖版</title>
+<title>貓咪消消樂 8x8 完整版</title>
 <style>
-  body {
-    background: linear-gradient(#ffe6cc, #fff);
-    font-family: "Comic Sans MS", sans-serif;
-    text-align: center;
-    user-select: none;
-    overflow: hidden;
-  }
-  h1 { margin-top: 20px; color: #d65a31; }
-  #game {
-    display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    gap: 4px;
-    justify-content: center;
-    margin: 20px auto;
-  }
-  .cell {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    background-color: #fff;
-    box-shadow: 0 0 6px rgba(0,0,0,0.2);
-    position: relative;
-    overflow: hidden;
-  }
-  .cell img {
-    width: 55px;
-    height: 55px;
-    pointer-events: none;
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%) translateY(0);
-    transition: transform 0.3s ease;
-  }
-  .match { animation: pop 0.3s ease; }
-  @keyframes pop {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.5); }
-    100% { transform: scale(0); }
-  }
-  #score { font-size: 20px; margin-top: 10px; color: #333; }
-  #gameOver { display: none; font-size: 28px; color: #b00020; margin-top: 15px; }
+  body { background: linear-gradient(#ffe6cc,#fff); font-family:"Comic Sans MS",sans-serif; text-align:center; user-select:none; overflow:hidden; }
+  h1{margin-top:20px;color:#d65a31;}
+  #game{display:grid;grid-template-columns:repeat(8,60px);grid-template-rows:repeat(8,60px);gap:4px;justify-content:center;margin:20px auto;}
+  .cell{width:60px;height:60px;border-radius:12px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,0.2);position:relative;overflow:hidden;}
+  .cell img{width:55px;height:55px;pointer-events:none;position:absolute;top:0;left:50%;transform:translateX(-50%) translateY(0);transition:transform 0.25s ease;}
+  .match{animation:pop 0.3s ease;}
+  @keyframes pop{0%{transform:scale(1);}50%{transform:scale(1.5);}100%{transform:scale(0);}}
+  #score{font-size:20px;margin-top:10px;color:#333;}
+  #gameOver{display:none;font-size:28px;color:#b00020;margin-top:15px;}
 </style>
 </head>
 <body>
-<h1>🐾 貓咪消消樂 8x8 連鎖版 🐾</h1>
+<h1>🐾 貓咪消消樂 8x8 完整版 🐾</h1>
 <div id="game"></div>
 <div id="score">分數：0</div>
 <div id="gameOver">🎮 遊戲結束！</div>
@@ -60,24 +26,24 @@
 <audio id="endSound" src="end.mp3"></audio>
 
 <script>
-const gridSize = 8;
-const images = ["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
-let grid = [];
-let score = 0;
-let dragging = null;
-let draggingElement = null;
-let gameOver = false;
+const gridSize=8;
+const images=["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
+let grid=[];
+let score=0;
+let dragging=null;
+let draggingElement=null;
+let gameOver=false;
 
-const game = document.getElementById("game");
-const scoreDisplay = document.getElementById("score");
-const gameOverDisplay = document.getElementById("gameOver");
-const matchSound = document.getElementById("matchSound");
-const endSound = document.getElementById("endSound");
+const game=document.getElementById("game");
+const scoreDisplay=document.getElementById("score");
+const gameOverDisplay=document.getElementById("gameOver");
+const matchSound=document.getElementById("matchSound");
+const endSound=document.getElementById("endSound");
 
 // ===== 建立格子 =====
-function createGrid() {
-  grid = [];
-  game.innerHTML = "";
+function createGrid(){
+  grid=[];
+  game.innerHTML="";
   for(let i=0;i<gridSize*gridSize;i++){
     const cell=document.createElement("div");
     cell.className="cell";
@@ -95,19 +61,12 @@ function createGrid() {
   }
 }
 
+// 避免初始三連
 function createsMatch(index,src){
   const r=Math.floor(index/gridSize);
   const c=index%gridSize;
-  if(c>=2){
-    const left1=grid[index-1]?.querySelector("img").src;
-    const left2=grid[index-2]?.querySelector("img").src;
-    if(left1===src && left2===src) return true;
-  }
-  if(r>=2){
-    const up1=grid[index-gridSize]?.querySelector("img").src;
-    const up2=grid[index-gridSize*2]?.querySelector("img").src;
-    if(up1===src && up2===src) return true;
-  }
+  if(c>=2){const l1=grid[index-1]?.querySelector("img").src; const l2=grid[index-2]?.querySelector("img").src; if(l1===src && l2===src) return true;}
+  if(r>=2){const u1=grid[index-gridSize]?.querySelector("img").src; const u2=grid[index-gridSize*2]?.querySelector("img").src; if(u1===src && u2===src) return true;}
   return false;
 }
 
@@ -120,7 +79,6 @@ function addDragTouchEvents(cell){
   cell.addEventListener("mousemove",moveDrag);
   cell.addEventListener("touchmove",moveDrag);
 }
-
 function startDrag(e){
   if(gameOver) return;
   e.preventDefault();
@@ -135,51 +93,42 @@ function startDrag(e){
   document.body.appendChild(draggingElement);
   moveDrag(e);
 }
-
 function moveDrag(e){
   if(!draggingElement) return;
   let x,y;
-  if(e.touches && e.touches[0]){ x=e.touches[0].clientX; y=e.touches[0].clientY; }
-  else{ x=e.clientX; y=e.clientY; }
+  if(e.touches && e.touches[0]){x=e.touches[0].clientX;y=e.touches[0].clientY;}
+  else{x=e.clientX;y=e.clientY;}
   draggingElement.style.left=x-27+"px";
   draggingElement.style.top=y-27+"px";
 }
-
 function areAdjacent(a,b){
   const i=parseInt(a.dataset.index);
   const j=parseInt(b.dataset.index);
-  const r1=Math.floor(i/gridSize), c1=i%gridSize;
-  const r2=Math.floor(j/gridSize), c2=j%gridSize;
+  const r1=Math.floor(i/gridSize),c1=i%gridSize;
+  const r2=Math.floor(j/gridSize),c2=j%gridSize;
   return (Math.abs(r1-r2)+Math.abs(c1-c2))===1;
 }
-
 function endDrag(e){
   if(!dragging) return;
   dragging.classList.remove("dragging");
-  if(draggingElement){ draggingElement.remove(); draggingElement=null; }
-  let target=document.elementFromPoint(
-    e.changedTouches?e.changedTouches[0].clientX:e.clientX,
-    e.changedTouches?e.changedTouches[0].clientY:e.clientY
-  );
+  if(draggingElement){draggingElement.remove();draggingElement=null;}
+  let target=document.elementFromPoint(e.changedTouches?e.changedTouches[0].clientX:e.clientX,e.changedTouches?e.changedTouches[0].clientY:e.clientY);
   if(target && target.classList.contains("cell") && target!==dragging && areAdjacent(dragging,target)){
     swapCells(dragging,target);
     cascade();
   }
   dragging=null;
 }
-
 function swapCells(a,b){
   const imgA=a.querySelector("img");
   const imgB=b.querySelector("img");
-  const temp=imgA.src;
-  imgA.src=imgB.src;
-  imgB.src=temp;
+  const temp=imgA.src; imgA.src=imgB.src; imgB.src=temp;
 }
 
-// ===== 延遲函數 =====
-function delay(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
+// ===== 延遲 =====
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 
-// ===== 檢查並消除連線 =====
+// ===== 檢查三連 =====
 function checkMatches(){
   let matched=[];
   for(let r=0;r<gridSize;r++){
@@ -203,23 +152,21 @@ function checkMatches(){
   return [...new Set(matched)];
 }
 
-// ===== 連鎖消除函數 =====
+// ===== 連鎖消除 =====
 async function cascade(){
   let matched=checkMatches();
   while(matched.length>0){
-    matchSound.currentTime=0;
-    matchSound.play();
-    score+=matched.length*10;
-    scoreDisplay.textContent="分數："+score;
-
+    matchSound.currentTime=0; matchSound.play();
+    score+=matched.length*10; scoreDisplay.textContent="分數："+score;
     for(const i of matched){
       const img=grid[i].querySelector("img");
       img.classList.add("match");
-      await delay(200);
-      img.src="";
-      img.classList.remove("match");
     }
-
+    await delay(250);
+    for(const i of matched){
+      grid[i].querySelector("img").src="";
+      grid[i].querySelector("img").classList.remove("match");
+    }
     await dropImages();
     matched=checkMatches();
   }
@@ -228,46 +175,34 @@ async function cascade(){
 
 // ===== 下落動畫 =====
 async function dropImages(){
-  let moved=false;
   for(let c=0;c<gridSize;c++){
     for(let r=gridSize-1;r>=0;r--){
       const i=r*gridSize+c;
       const img=grid[i].querySelector("img");
       if(img.src===""){
-        let found=false;
+        let moved=false;
         for(let k=r-1;k>=0;k--){
           const above=grid[k*gridSize+c].querySelector("img");
           if(above.src!==""){
-            img.src=above.src;
-            above.src="";
+            img.src=above.src; above.src="";
             img.style.transform="translateY(-60px)";
-            await delay(20);
+            await delay(50);
             img.style.transform="translateY(0)";
-            moved=true;
-            found=true;
-            break;
+            moved=true; break;
           }
         }
-        if(!found){
-          img.src=images[Math.floor(Math.random()*images.length)];
-          img.style.transform="translateY(-60px)";
-          await delay(20);
-          img.style.transform="translateY(0)";
-          moved=true;
-        }
+        if(!moved){ img.src=images[Math.floor(Math.random()*images.length)]; img.style.transform="translateY(-60px)"; await delay(50); img.style.transform="translateY(0)";}
       }
     }
   }
-  if(moved) await delay(250);
 }
 
 // ===== 是否有可消除 =====
-function hasAnyMatches(){ return checkMatches().length>0; }
+function hasAnyMatches(){return checkMatches().length>0;}
 
 // ===== 遊戲結束 =====
-function endGame(){ gameOver=true; gameOverDisplay.style.display="block"; endSound.play(); }
+function endGame(){gameOver=true; gameOverDisplay.style.display="block"; endSound.play();}
 
-// ===== 初始化 =====
 createGrid();
 </script>
 </body>
