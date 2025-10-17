@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚消消樂 8x8</title>
+<title>喵嗚消消樂 8x8 滑落動畫版</title>
 <style>
 body {
   text-align: center;
@@ -57,7 +57,7 @@ body {
 </head>
 <body>
 
-<h2>喵嗚消消樂 8x8</h2>
+<h2>喵嗚消消樂 8x8 滑落動畫版</h2>
 <div class="score">喵嗚值：<span id="score">0</span></div>
 <div id="game"></div>
 
@@ -231,41 +231,45 @@ function clearMatches(matches){
   scoreEl.textContent = score;
 }
 
+// 多格同時滑落動畫
 function applyGravity(){
+  const clones = [];
   for(let c=0;c<cols;c++){
+    let emptyCount = 0;
     for(let r=rows-1;r>=0;r--){
       if(!board[r][c]){
-        for(let k=r-1;k>=0;k--){
-          if(board[k][c]){
-            const fromIcon = board[k][c];
-            board[r][c] = fromIcon;
-            board[k][c] = null;
+        emptyCount++;
+      } else if(emptyCount>0){
+        const fromIcon = board[r][c];
+        board[r+emptyCount][c] = fromIcon;
+        board[r][c] = null;
 
-            // 動畫效果
-            const cell = document.querySelector(`.cell[data-row="${k}"][data-col="${c}"]`);
-            const target = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-            if(cell && target){
-              const clone = cell.cloneNode(true);
-              clone.style.position = "absolute";
-              const rectStart = cell.getBoundingClientRect();
-              const rectTarget = target.getBoundingClientRect();
-              clone.style.left = rectStart.left + "px";
-              clone.style.top = rectStart.top + "px";
-              clone.style.transition = "top 0.3s ease";
-              document.body.appendChild(clone);
-              setTimeout(()=>{ clone.style.top = rectTarget.top + "px"; }, 20);
-              setTimeout(()=>{ clone.remove(); renderBoard(); }, 320);
-            }
-
-            break;
-          }
+        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        const target = document.querySelector(`.cell[data-row="${r+emptyCount}"][data-col="${c}"]`);
+        if(cell && target){
+          const clone = cell.cloneNode(true);
+          clone.style.position = "absolute";
+          const rectStart = cell.getBoundingClientRect();
+          const rectTarget = target.getBoundingClientRect();
+          clone.style.left = rectStart.left + "px";
+          clone.style.top = rectStart.top + "px";
+          clone.style.transition = "top 0.3s ease";
+          document.body.appendChild(clone);
+          setTimeout(()=>{ clone.style.top = rectTarget.top + "px"; }, 20);
+          clones.push(clone);
         }
       }
     }
   }
+  // 動畫結束後再渲染
+  setTimeout(()=>{
+    clones.forEach(clone=>clone.remove());
+    renderBoard();
+  }, 320);
 }
 
 function refillBoard(){
+  const clones = [];
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
       if(!board[r][c]){
@@ -283,11 +287,15 @@ function refillBoard(){
           clone.style.transition = "top 0.3s ease";
           document.body.appendChild(clone);
           setTimeout(()=>{ clone.style.top = rect.top + "px"; }, 20);
-          setTimeout(()=>{ clone.remove(); renderBoard(); }, 320);
+          clones.push(clone);
         }
       }
     }
   }
+  setTimeout(()=>{
+    clones.forEach(clone=>clone.remove());
+    renderBoard();
+  }, 320);
 }
 
 function handleMatches(matches){
