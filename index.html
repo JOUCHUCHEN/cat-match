@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>貓咪消消樂</title>
+<title>貓咪消消樂 8x8 連鎖版</title>
 <style>
   body {
     background: linear-gradient(#ffe6cc, #fff);
@@ -12,10 +12,7 @@
     user-select: none;
     overflow: hidden;
   }
-  h1 {
-    margin-top: 20px;
-    color: #d65a31;
-  }
+  h1 { margin-top: 20px; color: #d65a31; }
   #game {
     display: grid;
     grid-template-columns: repeat(8, 60px);
@@ -43,29 +40,18 @@
     transform: translateX(-50%) translateY(0);
     transition: transform 0.3s ease;
   }
-  .match {
-    animation: pop 0.3s ease;
-  }
+  .match { animation: pop 0.3s ease; }
   @keyframes pop {
     0% { transform: scale(1); }
     50% { transform: scale(1.5); }
     100% { transform: scale(0); }
   }
-  #score {
-    font-size: 20px;
-    margin-top: 10px;
-    color: #333;
-  }
-  #gameOver {
-    display: none;
-    font-size: 28px;
-    color: #b00020;
-    margin-top: 15px;
-  }
+  #score { font-size: 20px; margin-top: 10px; color: #333; }
+  #gameOver { display: none; font-size: 28px; color: #b00020; margin-top: 15px; }
 </style>
 </head>
 <body>
-<h1>🐾 貓咪消消樂 🐾</h1>
+<h1>🐾 貓咪消消樂 8x8 連鎖版 🐾</h1>
 <div id="game"></div>
 <div id="score">分數：0</div>
 <div id="gameOver">🎮 遊戲結束！</div>
@@ -92,113 +78,112 @@ const endSound = document.getElementById("endSound");
 function createGrid() {
   grid = [];
   game.innerHTML = "";
-  for (let i = 0; i < gridSize * gridSize; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
-    const img = document.createElement("img");
+  for(let i=0;i<gridSize*gridSize;i++){
+    const cell=document.createElement("div");
+    cell.className="cell";
+    const img=document.createElement("img");
     let newSrc;
-    do {
-      newSrc = images[Math.floor(Math.random() * images.length)];
-      img.src = newSrc;
-    } while (createsMatch(i, newSrc));
+    do{
+      newSrc=images[Math.floor(Math.random()*images.length)];
+      img.src=newSrc;
+    }while(createsMatch(i,newSrc));
     cell.appendChild(img);
-    cell.dataset.index = i;
+    cell.dataset.index=i;
     addDragTouchEvents(cell);
     game.appendChild(cell);
     grid.push(cell);
   }
 }
 
-function createsMatch(index, src) {
-  const r = Math.floor(index / gridSize);
-  const c = index % gridSize;
-  if (c >= 2) {
-    const left1 = grid[index - 1]?.querySelector("img").src;
-    const left2 = grid[index - 2]?.querySelector("img").src;
-    if (left1===src && left2===src) return true;
+function createsMatch(index,src){
+  const r=Math.floor(index/gridSize);
+  const c=index%gridSize;
+  if(c>=2){
+    const left1=grid[index-1]?.querySelector("img").src;
+    const left2=grid[index-2]?.querySelector("img").src;
+    if(left1===src && left2===src) return true;
   }
-  if (r >=2) {
-    const up1 = grid[index - gridSize]?.querySelector("img").src;
-    const up2 = grid[index - gridSize*2]?.querySelector("img").src;
-    if (up1===src && up2===src) return true;
+  if(r>=2){
+    const up1=grid[index-gridSize]?.querySelector("img").src;
+    const up2=grid[index-gridSize*2]?.querySelector("img").src;
+    if(up1===src && up2===src) return true;
   }
   return false;
 }
 
 // ===== 拖曳事件 =====
-function addDragTouchEvents(cell) {
-  cell.addEventListener("mousedown", startDrag);
-  cell.addEventListener("touchstart", startDrag);
-  cell.addEventListener("mouseup", endDrag);
-  cell.addEventListener("touchend", endDrag);
-  cell.addEventListener("mousemove", moveDrag);
-  cell.addEventListener("touchmove", moveDrag);
+function addDragTouchEvents(cell){
+  cell.addEventListener("mousedown",startDrag);
+  cell.addEventListener("touchstart",startDrag);
+  cell.addEventListener("mouseup",endDrag);
+  cell.addEventListener("touchend",endDrag);
+  cell.addEventListener("mousemove",moveDrag);
+  cell.addEventListener("touchmove",moveDrag);
 }
 
-function startDrag(e) {
-  if (gameOver) return;
+function startDrag(e){
+  if(gameOver) return;
   e.preventDefault();
-  dragging = e.currentTarget;
+  dragging=e.currentTarget;
   dragging.classList.add("dragging");
-  draggingElement = dragging.querySelector("img").cloneNode();
-  draggingElement.style.position = "fixed";
-  draggingElement.style.pointerEvents = "none";
-  draggingElement.style.zIndex = "1000";
-  draggingElement.style.width = "55px";
-  draggingElement.style.height = "55px";
+  draggingElement=dragging.querySelector("img").cloneNode();
+  draggingElement.style.position="fixed";
+  draggingElement.style.pointerEvents="none";
+  draggingElement.style.zIndex="1000";
+  draggingElement.style.width="55px";
+  draggingElement.style.height="55px";
   document.body.appendChild(draggingElement);
   moveDrag(e);
 }
 
-function moveDrag(e) {
-  if (!draggingElement) return;
-  let x, y;
-  if (e.touches && e.touches[0]) { x = e.touches[0].clientX; y = e.touches[0].clientY; }
-  else { x = e.clientX; y = e.clientY; }
-  draggingElement.style.left = x-27+"px";
-  draggingElement.style.top = y-27+"px";
+function moveDrag(e){
+  if(!draggingElement) return;
+  let x,y;
+  if(e.touches && e.touches[0]){ x=e.touches[0].clientX; y=e.touches[0].clientY; }
+  else{ x=e.clientX; y=e.clientY; }
+  draggingElement.style.left=x-27+"px";
+  draggingElement.style.top=y-27+"px";
 }
 
-function areAdjacent(cellA, cellB) {
-  const i = parseInt(cellA.dataset.index);
-  const j = parseInt(cellB.dataset.index);
-  const r1 = Math.floor(i / gridSize), c1 = i % gridSize;
-  const r2 = Math.floor(j / gridSize), c2 = j % gridSize;
-  return (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
+function areAdjacent(a,b){
+  const i=parseInt(a.dataset.index);
+  const j=parseInt(b.dataset.index);
+  const r1=Math.floor(i/gridSize), c1=i%gridSize;
+  const r2=Math.floor(j/gridSize), c2=j%gridSize;
+  return (Math.abs(r1-r2)+Math.abs(c1-c2))===1;
 }
 
-function endDrag(e) {
-  if (!dragging) return;
+function endDrag(e){
+  if(!dragging) return;
   dragging.classList.remove("dragging");
-  if (draggingElement) { draggingElement.remove(); draggingElement = null; }
-
-  let target = document.elementFromPoint(
-    e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
-    e.changedTouches ? e.changedTouches[0].clientY : e.clientY
+  if(draggingElement){ draggingElement.remove(); draggingElement=null; }
+  let target=document.elementFromPoint(
+    e.changedTouches?e.changedTouches[0].clientX:e.clientX,
+    e.changedTouches?e.changedTouches[0].clientY:e.clientY
   );
-
-  if (target && target.classList.contains("cell") && target!==dragging && areAdjacent(dragging,target)) {
-    const source = dragging;
-    swapCells(source,target);
-    if (checkAndRemoveMatches()) setTimeout(dropImages, 300);
-    else setTimeout(()=>swapCells(source,target), 200);
+  if(target && target.classList.contains("cell") && target!==dragging && areAdjacent(dragging,target)){
+    swapCells(dragging,target);
+    cascade();
   }
   dragging=null;
 }
 
 function swapCells(a,b){
-  const imgA = a.querySelector("img");
-  const imgB = b.querySelector("img");
-  const temp = imgA.src;
-  imgA.src = imgB.src;
-  imgB.src = temp;
+  const imgA=a.querySelector("img");
+  const imgB=b.querySelector("img");
+  const temp=imgA.src;
+  imgA.src=imgB.src;
+  imgB.src=temp;
 }
 
-// ===== 消除 =====
-function checkAndRemoveMatches(){
-  let matched = [];
-  for (let r=0;r<gridSize;r++){
-    for (let c=0;c<gridSize-2;c++){
+// ===== 延遲函數 =====
+function delay(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
+
+// ===== 檢查並消除連線 =====
+function checkMatches(){
+  let matched=[];
+  for(let r=0;r<gridSize;r++){
+    for(let c=0;c<gridSize-2;c++){
       const i=r*gridSize+c;
       const s1=grid[i].querySelector("img").src;
       const s2=grid[i+1].querySelector("img").src;
@@ -206,8 +191,8 @@ function checkAndRemoveMatches(){
       if(s1===s2 && s2===s3) matched.push(i,i+1,i+2);
     }
   }
-  for (let c=0;c<gridSize;c++){
-    for (let r=0;r<gridSize-2;r++){
+  for(let c=0;c<gridSize;c++){
+    for(let r=0;r<gridSize-2;r++){
       const i=r*gridSize+c;
       const s1=grid[i].querySelector("img").src;
       const s2=grid[i+gridSize].querySelector("img").src;
@@ -215,25 +200,34 @@ function checkAndRemoveMatches(){
       if(s1===s2 && s2===s3) matched.push(i,i+gridSize,i+gridSize*2);
     }
   }
-  matched=[...new Set(matched)];
-  if(matched.length===0) return false;
-
-  matchSound.currentTime=0;
-  matchSound.play();
-  score+=matched.length*10;
-  scoreDisplay.textContent="分數："+score;
-
-  matched.forEach(i=>{
-    const img=grid[i].querySelector("img");
-    img.classList.add("match");
-    setTimeout(()=>{ img.src=""; img.classList.remove("match"); },200);
-  });
-
-  return true;
+  return [...new Set(matched)];
 }
 
-// ===== 掉落動畫 =====
-function dropImages(){
+// ===== 連鎖消除函數 =====
+async function cascade(){
+  let matched=checkMatches();
+  while(matched.length>0){
+    matchSound.currentTime=0;
+    matchSound.play();
+    score+=matched.length*10;
+    scoreDisplay.textContent="分數："+score;
+
+    for(const i of matched){
+      const img=grid[i].querySelector("img");
+      img.classList.add("match");
+      await delay(200);
+      img.src="";
+      img.classList.remove("match");
+    }
+
+    await dropImages();
+    matched=checkMatches();
+  }
+  if(!hasAnyMatches()) endGame();
+}
+
+// ===== 下落動畫 =====
+async function dropImages(){
   let moved=false;
   for(let c=0;c<gridSize;c++){
     for(let r=gridSize-1;r>=0;r--){
@@ -247,7 +241,8 @@ function dropImages(){
             img.src=above.src;
             above.src="";
             img.style.transform="translateY(-60px)";
-            setTimeout(()=>{ img.style.transform="translateY(0)"; },50);
+            await delay(20);
+            img.style.transform="translateY(0)";
             moved=true;
             found=true;
             break;
@@ -256,43 +251,23 @@ function dropImages(){
         if(!found){
           img.src=images[Math.floor(Math.random()*images.length)];
           img.style.transform="translateY(-60px)";
-          setTimeout(()=>{ img.style.transform="translateY(0)"; },50);
+          await delay(20);
+          img.style.transform="translateY(0)";
           moved=true;
         }
       }
     }
   }
-  if(moved){
-    setTimeout(()=>{ if(checkAndRemoveMatches()) setTimeout(dropImages,250); else if(!hasAnyMatches()) endGame(); },300);
-  } else { if(!hasAnyMatches()) endGame(); }
+  if(moved) await delay(250);
 }
 
 // ===== 是否有可消除 =====
-function hasAnyMatches(){
-  for(let r=0;r<gridSize;r++){
-    for(let c=0;c<gridSize-2;c++){
-      const i=r*gridSize+c;
-      const s1=grid[i].querySelector("img").src;
-      const s2=grid[i+1].querySelector("img").src;
-      const s3=grid[i+2].querySelector("img").src;
-      if(s1===s2 && s2===s3) return true;
-    }
-  }
-  for(let c=0;c<gridSize;c++){
-    for(let r=0;r<gridSize-2;r++){
-      const i=r*gridSize+c;
-      const s1=grid[i].querySelector("img").src;
-      const s2=grid[i+gridSize].querySelector("img").src;
-      const s3=grid[i+gridSize*2].querySelector("img").src;
-      if(s1===s2 && s2===s3) return true;
-    }
-  }
-  return false;
-}
+function hasAnyMatches(){ return checkMatches().length>0; }
 
 // ===== 遊戲結束 =====
 function endGame(){ gameOver=true; gameOverDisplay.style.display="block"; endSound.play(); }
 
+// ===== 初始化 =====
 createGrid();
 </script>
 </body>
