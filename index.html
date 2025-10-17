@@ -5,51 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>喵嗚消消樂 8x8</title>
 <style>
-  body {
-    text-align: center;
-    background: #222;
-    color: #fff;
-    font-family: "微軟正黑體";
-  }
-  #game {
-    display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    gap: 5px;
-    justify-content: center;
-    margin-top: 20px;
-    touch-action: none;
-  }
-  .cell {
-    width: 60px;
-    height: 60px;
-    background-size: cover;
-    border-radius: 10px;
-    cursor: grab;
-    transition: transform 0.2s;
-    position: relative;
-  }
-  .dragging {
-    opacity: 0.8;
-    transform: scale(1.2);
-    z-index: 10;
-  }
-  .score {
-    font-size: 22px;
-    margin-top: 10px;
-  }
-  .plus-text {
-    position: fixed;
-    font-size: 18px;
-    color: #ffdd00;
-    font-weight: bold;
-    animation: floatUp 0.8s ease-out forwards;
-    pointer-events: none;
-  }
-  @keyframes floatUp {
-    0% {opacity:1; transform:translateY(0);}
-    100% {opacity:0; transform:translateY(-40px);}
-  }
+body {
+  text-align: center;
+  background: #222;
+  color: #fff;
+  font-family: "微軟正黑體";
+}
+#game {
+  display: grid;
+  grid-template-columns: repeat(8, 60px);
+  grid-template-rows: repeat(8, 60px);
+  gap: 5px;
+  justify-content: center;
+  margin-top: 20px;
+  touch-action: none;
+  position: relative;
+}
+.cell {
+  width: 60px;
+  height: 60px;
+  background-size: cover;
+  border-radius: 10px;
+  cursor: grab;
+  transition: transform 0.2s;
+  position: relative;
+}
+.dragging {
+  opacity: 0.8;
+  transform: scale(1.2);
+  z-index: 1000;
+  position: fixed;
+  pointer-events: none;
+}
+.score {
+  font-size: 22px;
+  margin-top: 10px;
+}
+.plus-text {
+  position: fixed;
+  font-size: 18px;
+  color: #ffdd00;
+  font-weight: bold;
+  animation: floatUp 0.8s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes floatUp {
+  0% {opacity:1; transform:translateY(0);}
+  100% {opacity:0; transform:translateY(-40px);}
+}
 </style>
 </head>
 <body>
@@ -71,7 +74,7 @@ function randomIcon() {
   return icons[Math.floor(Math.random() * icons.length)];
 }
 
-// 初始化棋盤並保證無三連
+// 初始化棋盤，保證開局無三連
 function initBoard() {
   do {
     board = [];
@@ -102,6 +105,7 @@ function renderBoard() {
 }
 
 let dragging = null;
+let clone = null;
 let startRow, startCol;
 let offsetX, offsetY;
 
@@ -113,16 +117,21 @@ function addDragEvents(cell) {
 function dragStart(e) {
   e.preventDefault();
   const target = e.target;
-  dragging = target;
-  dragging.classList.add("dragging");
   startRow = +target.dataset.row;
   startCol = +target.dataset.col;
+
+  // clone 一個跟隨
+  clone = target.cloneNode(true);
+  clone.classList.add("dragging");
+  document.body.appendChild(clone);
 
   const rect = target.getBoundingClientRect();
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const y = e.touches ? e.touches[0].clientY : e.clientY;
   offsetX = x - rect.left;
   offsetY = y - rect.top;
+  clone.style.left = (x - offsetX) + "px";
+  clone.style.top = (y - offsetY) + "px";
 
   document.addEventListener("mousemove", dragMove);
   document.addEventListener("mouseup", dragEnd);
@@ -131,44 +140,41 @@ function dragStart(e) {
 }
 
 function dragMove(e) {
-  if (!dragging) return;
+  if (!clone) return;
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const y = e.touches ? e.touches[0].clientY : e.clientY;
-  dragging.style.position = "fixed";
-  dragging.style.left = (x - offsetX) + "px";
-  dragging.style.top = (y - offsetY) + "px";
+  clone.style.left = (x - offsetX) + "px";
+  clone.style.top = (y - offsetY) + "px";
 }
 
 function dragEnd(e) {
-  if (!dragging) return;
-  dragging.classList.remove("dragging");
-  dragging.style.position = "";
-  dragging.style.left = "";
-  dragging.style.top = "";
-
+  if (!clone) return;
   const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
   const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
   const dropCell = document.elementFromPoint(x, y);
   if (!dropCell || !dropCell.classList.contains("cell")) {
-    dragging = null;
+    clone.remove();
+    clone = null;
     return;
   }
-
   const endRow = +dropCell.dataset.row;
   const endCol = +dropCell.dataset.col;
 
   const dr = Math.abs(endRow - startRow);
   const dc = Math.abs(endCol - startCol);
+
   if ((dr + dc) === 1) {
     swapCells(startRow, startCol, endRow, endCol);
     const matches = checkMatches();
     if (matches.length > 0) {
       handleMatches(matches);
     } else {
+      // 回原位
       swapCells(startRow, startCol, endRow, endCol);
     }
   }
-  dragging = null;
+  clone.remove();
+  clone = null;
   document.removeEventListener("mousemove", dragMove);
   document.removeEventListener("mouseup", dragEnd);
   document.removeEventListener("touchmove", dragMove);
