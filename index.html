@@ -18,15 +18,15 @@
   }
   #game {
     display: grid;
-    grid-template-columns: repeat(6, 70px);
-    grid-template-rows: repeat(6, 70px);
-    gap: 6px;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 4px;
     justify-content: center;
     margin: 20px auto;
   }
   .cell {
-    width: 70px;
-    height: 70px;
+    width: 60px;
+    height: 60px;
     border-radius: 12px;
     background-color: #fff;
     box-shadow: 0 0 6px rgba(0,0,0,0.2);
@@ -34,14 +34,17 @@
     overflow: hidden;
   }
   .cell img {
-    width: 65px;
-    height: 65px;
+    width: 55px;
+    height: 55px;
     pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
     transition: transform 0.3s ease;
-    position: relative;
   }
   .match {
-    animation: pop 0.4s ease;
+    animation: pop 0.3s ease;
   }
   @keyframes pop {
     0% { transform: scale(1); }
@@ -67,12 +70,11 @@
 <div id="score">分數：0</div>
 <div id="gameOver">🎮 遊戲結束！</div>
 
-<!-- 音效 -->
 <audio id="matchSound" src="match.mp3"></audio>
 <audio id="endSound" src="end.mp3"></audio>
 
 <script>
-const gridSize = 6;
+const gridSize = 8;
 const images = ["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
 let grid = [];
 let score = 0;
@@ -86,7 +88,7 @@ const gameOverDisplay = document.getElementById("gameOver");
 const matchSound = document.getElementById("matchSound");
 const endSound = document.getElementById("endSound");
 
-// ===== 建立格子，保證初始沒有三連線 =====
+// ===== 建立格子 =====
 function createGrid() {
   grid = [];
   game.innerHTML = "";
@@ -107,19 +109,18 @@ function createGrid() {
   }
 }
 
-// 檢查放這個圖案會不會造成三連線
 function createsMatch(index, src) {
   const r = Math.floor(index / gridSize);
   const c = index % gridSize;
   if (c >= 2) {
     const left1 = grid[index - 1]?.querySelector("img").src;
     const left2 = grid[index - 2]?.querySelector("img").src;
-    if (left1 === src && left2 === src) return true;
+    if (left1===src && left2===src) return true;
   }
-  if (r >= 2) {
+  if (r >=2) {
     const up1 = grid[index - gridSize]?.querySelector("img").src;
     const up2 = grid[index - gridSize*2]?.querySelector("img").src;
-    if (up1 === src && up2 === src) return true;
+    if (up1===src && up2===src) return true;
   }
   return false;
 }
@@ -143,8 +144,8 @@ function startDrag(e) {
   draggingElement.style.position = "fixed";
   draggingElement.style.pointerEvents = "none";
   draggingElement.style.zIndex = "1000";
-  draggingElement.style.width = "65px";
-  draggingElement.style.height = "65px";
+  draggingElement.style.width = "55px";
+  draggingElement.style.height = "55px";
   document.body.appendChild(draggingElement);
   moveDrag(e);
 }
@@ -152,15 +153,10 @@ function startDrag(e) {
 function moveDrag(e) {
   if (!draggingElement) return;
   let x, y;
-  if (e.touches && e.touches[0]) {
-    x = e.touches[0].clientX;
-    y = e.touches[0].clientY;
-  } else {
-    x = e.clientX;
-    y = e.clientY;
-  }
-  draggingElement.style.left = x - 32 + "px";
-  draggingElement.style.top = y - 32 + "px";
+  if (e.touches && e.touches[0]) { x = e.touches[0].clientX; y = e.touches[0].clientY; }
+  else { x = e.clientX; y = e.clientY; }
+  draggingElement.style.left = x-27+"px";
+  draggingElement.style.top = y-27+"px";
 }
 
 function areAdjacent(cellA, cellB) {
@@ -181,132 +177,122 @@ function endDrag(e) {
     e.changedTouches ? e.changedTouches[0].clientY : e.clientY
   );
 
-  if (target && target.classList.contains("cell") && target !== dragging && areAdjacent(dragging, target)) {
+  if (target && target.classList.contains("cell") && target!==dragging && areAdjacent(dragging,target)) {
     const source = dragging;
-    swapCells(source, target);
-    if (checkAndRemoveMatches()) {
-      setTimeout(dropImages, 300);
-    } else {
-      setTimeout(() => swapCells(source, target), 200);
-    }
+    swapCells(source,target);
+    if (checkAndRemoveMatches()) setTimeout(dropImages, 300);
+    else setTimeout(()=>swapCells(source,target), 200);
   }
-
-  dragging = null;
+  dragging=null;
 }
 
-// ===== 交換格子圖案 =====
-function swapCells(cellA, cellB) {
-  const imgA = cellA.querySelector("img").src;
-  const imgB = cellB.querySelector("img").src;
-  cellA.querySelector("img").src = imgB;
-  cellB.querySelector("img").src = imgA;
+function swapCells(a,b){
+  const imgA = a.querySelector("img");
+  const imgB = b.querySelector("img");
+  const temp = imgA.src;
+  imgA.src = imgB.src;
+  imgB.src = temp;
 }
 
-// ===== 檢查並消除連線 =====
-function checkAndRemoveMatches() {
+// ===== 消除 =====
+function checkAndRemoveMatches(){
   let matched = [];
-  for (let r=0; r<gridSize; r++) {
-    for (let c=0; c<gridSize-2; c++) {
-      const i = r*gridSize + c;
-      const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i+1].querySelector("img").src;
-      const src3 = grid[i+2].querySelector("img").src;
-      if (src1===src2 && src2===src3) matched.push(i,i+1,i+2);
+  for (let r=0;r<gridSize;r++){
+    for (let c=0;c<gridSize-2;c++){
+      const i=r*gridSize+c;
+      const s1=grid[i].querySelector("img").src;
+      const s2=grid[i+1].querySelector("img").src;
+      const s3=grid[i+2].querySelector("img").src;
+      if(s1===s2 && s2===s3) matched.push(i,i+1,i+2);
     }
   }
-  for (let c=0; c<gridSize; c++) {
-    for (let r=0; r<gridSize-2; r++) {
-      const i = r*gridSize + c;
-      const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i+gridSize].querySelector("img").src;
-      const src3 = grid[i+gridSize*2].querySelector("img").src;
-      if (src1===src2 && src2===src3) matched.push(i,i+gridSize,i+gridSize*2);
+  for (let c=0;c<gridSize;c++){
+    for (let r=0;r<gridSize-2;r++){
+      const i=r*gridSize+c;
+      const s1=grid[i].querySelector("img").src;
+      const s2=grid[i+gridSize].querySelector("img").src;
+      const s3=grid[i+gridSize*2].querySelector("img").src;
+      if(s1===s2 && s2===s3) matched.push(i,i+gridSize,i+gridSize*2);
     }
   }
-  matched = [...new Set(matched)];
-  if (matched.length===0) return false;
+  matched=[...new Set(matched)];
+  if(matched.length===0) return false;
 
-  matchSound.currentTime = 0;
+  matchSound.currentTime=0;
   matchSound.play();
-
-  score += matched.length*10;
-  scoreDisplay.textContent = "分數：" + score;
+  score+=matched.length*10;
+  scoreDisplay.textContent="分數："+score;
 
   matched.forEach(i=>{
-    const img = grid[i].querySelector("img");
+    const img=grid[i].querySelector("img");
     img.classList.add("match");
-    setTimeout(()=>{ img.src=""; img.classList.remove("match"); }, 300);
+    setTimeout(()=>{ img.src=""; img.classList.remove("match"); },200);
   });
 
   return true;
 }
 
-// ===== 圖片掉落 & 補圖 =====
-function dropImages() {
-  let moved = false;
-  for (let c=0; c<gridSize; c++) {
-    for (let r=gridSize-1; r>=0; r--) {
-      const i = r*gridSize + c;
-      const cell = grid[i];
-      const img = cell.querySelector("img");
-      if (img.src==="") {
-        for (let k=r-1; k>=0; k--) {
-          const aboveImg = grid[k*gridSize+c].querySelector("img");
-          if (aboveImg.src!=="") {
-            img.src = aboveImg.src;
-            aboveImg.src = "";
-            moved = true;
+// ===== 掉落動畫 =====
+function dropImages(){
+  let moved=false;
+  for(let c=0;c<gridSize;c++){
+    for(let r=gridSize-1;r>=0;r--){
+      const i=r*gridSize+c;
+      const img=grid[i].querySelector("img");
+      if(img.src===""){
+        let found=false;
+        for(let k=r-1;k>=0;k--){
+          const above=grid[k*gridSize+c].querySelector("img");
+          if(above.src!==""){
+            img.src=above.src;
+            above.src="";
+            img.style.transform="translateY(-60px)";
+            setTimeout(()=>{ img.style.transform="translateY(0)"; },50);
+            moved=true;
+            found=true;
             break;
           }
         }
-        if (img.src==="") {
-          img.src = images[Math.floor(Math.random()*images.length)];
-          moved = true;
+        if(!found){
+          img.src=images[Math.floor(Math.random()*images.length)];
+          img.style.transform="translateY(-60px)";
+          setTimeout(()=>{ img.style.transform="translateY(0)"; },50);
+          moved=true;
         }
       }
     }
   }
-  if (moved) {
-    setTimeout(()=>{
-      if (checkAndRemoveMatches()) setTimeout(dropImages, 300);
-      else if (!hasAnyMatches()) endGame();
-    }, 300);
-  } else {
-    if (!hasAnyMatches()) endGame();
-  }
+  if(moved){
+    setTimeout(()=>{ if(checkAndRemoveMatches()) setTimeout(dropImages,250); else if(!hasAnyMatches()) endGame(); },300);
+  } else { if(!hasAnyMatches()) endGame(); }
 }
 
 // ===== 是否有可消除 =====
-function hasAnyMatches() {
-  for (let r=0; r<gridSize; r++) {
-    for (let c=0; c<gridSize-2; c++) {
-      const i = r*gridSize + c;
-      const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i+1].querySelector("img").src;
-      const src3 = grid[i+2].querySelector("img").src;
-      if (src1===src2 && src2===src3) return true;
+function hasAnyMatches(){
+  for(let r=0;r<gridSize;r++){
+    for(let c=0;c<gridSize-2;c++){
+      const i=r*gridSize+c;
+      const s1=grid[i].querySelector("img").src;
+      const s2=grid[i+1].querySelector("img").src;
+      const s3=grid[i+2].querySelector("img").src;
+      if(s1===s2 && s2===s3) return true;
     }
   }
-  for (let c=0; c<gridSize; c++) {
-    for (let r=0; r<gridSize-2; r++) {
-      const i = r*gridSize + c;
-      const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i+gridSize].querySelector("img").src;
-      const src3 = grid[i+gridSize*2].querySelector("img").src;
-      if (src1===src2 && src2===src3) return true;
+  for(let c=0;c<gridSize;c++){
+    for(let r=0;r<gridSize-2;r++){
+      const i=r*gridSize+c;
+      const s1=grid[i].querySelector("img").src;
+      const s2=grid[i+gridSize].querySelector("img").src;
+      const s3=grid[i+gridSize*2].querySelector("img").src;
+      if(s1===s2 && s2===s3) return true;
     }
   }
   return false;
 }
 
 // ===== 遊戲結束 =====
-function endGame() {
-  gameOver = true;
-  gameOverDisplay.style.display = "block";
-  endSound.play();
-}
+function endGame(){ gameOver=true; gameOverDisplay.style.display="block"; endSound.play(); }
 
-// ===== 開始遊戲 =====
 createGrid();
 </script>
 </body>
