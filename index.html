@@ -104,7 +104,6 @@ function renderBoard() {
   }
 }
 
-let dragging = null;
 let clone = null;
 let startRow, startCol;
 let offsetX, offsetY;
@@ -120,7 +119,6 @@ function dragStart(e) {
   startRow = +target.dataset.row;
   startCol = +target.dataset.col;
 
-  // clone 一個跟隨
   clone = target.cloneNode(true);
   clone.classList.add("dragging");
   document.body.appendChild(clone);
@@ -170,12 +168,10 @@ function dragEnd(e) {
       handleMatches(matches);
       clone.remove();
     } else {
-      // 滑錯回原位
       swapCells(startRow, startCol, endRow, endCol);
       animateReturn(clone, startRow, startCol);
     }
   } else {
-    // 非鄰格，回原位
     animateReturn(clone, startRow, startCol);
   }
 
@@ -185,7 +181,6 @@ function dragEnd(e) {
   document.removeEventListener("touchend", dragEnd);
 }
 
-// 平滑回原位動畫
 function animateReturn(cloneEl, r, c) {
   const targetCell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if (!targetCell) { cloneEl.remove(); return; }
@@ -242,8 +237,26 @@ function applyGravity(){
       if(!board[r][c]){
         for(let k=r-1;k>=0;k--){
           if(board[k][c]){
-            board[r][c]=board[k][c];
-            board[k][c]=null;
+            const fromIcon = board[k][c];
+            board[r][c] = fromIcon;
+            board[k][c] = null;
+
+            // 動畫效果
+            const cell = document.querySelector(`.cell[data-row="${k}"][data-col="${c}"]`);
+            const target = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+            if(cell && target){
+              const clone = cell.cloneNode(true);
+              clone.style.position = "absolute";
+              const rectStart = cell.getBoundingClientRect();
+              const rectTarget = target.getBoundingClientRect();
+              clone.style.left = rectStart.left + "px";
+              clone.style.top = rectStart.top + "px";
+              clone.style.transition = "top 0.3s ease";
+              document.body.appendChild(clone);
+              setTimeout(()=>{ clone.style.top = rectTarget.top + "px"; }, 20);
+              setTimeout(()=>{ clone.remove(); renderBoard(); }, 320);
+            }
+
             break;
           }
         }
@@ -255,7 +268,24 @@ function applyGravity(){
 function refillBoard(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(!board[r][c]) board[r][c]=randomIcon();
+      if(!board[r][c]){
+        const icon = randomIcon();
+        board[r][c] = icon;
+
+        const target = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        if(target){
+          const clone = target.cloneNode(true);
+          clone.style.backgroundImage = `url(./${icon})`;
+          clone.style.position = "absolute";
+          const rect = target.getBoundingClientRect();
+          clone.style.left = rect.left + "px";
+          clone.style.top = (rect.top - 70) + "px"; // 從上方滑入
+          clone.style.transition = "top 0.3s ease";
+          document.body.appendChild(clone);
+          setTimeout(()=>{ clone.style.top = rect.top + "px"; }, 20);
+          setTimeout(()=>{ clone.remove(); renderBoard(); }, 320);
+        }
+      }
     }
   }
 }
@@ -265,7 +295,6 @@ function handleMatches(matches){
   setTimeout(()=>{
     applyGravity();
     refillBoard();
-    renderBoard();
     const newMatches=checkMatches();
     if(newMatches.length>0) handleMatches(newMatches);
     else if(!hasPossibleMoves()) gameOver();
