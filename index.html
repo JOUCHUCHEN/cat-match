@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚消消樂 8x8 連鎖版</title>
+<title>喵嗚消消樂 8x8 無重影滑落版</title>
 <style>
 body {
   text-align: center;
@@ -57,7 +57,7 @@ body {
 </head>
 <body>
 
-<h2>喵嗚消消樂 8x8 連鎖版</h2>
+<h2>喵嗚消消樂 8x8 無重影滑落版</h2>
 <div class="score">喵嗚值：<span id="score">0</span></div>
 <div id="game"></div>
 
@@ -70,7 +70,6 @@ let score = 0;
 const game = document.getElementById("game");
 const scoreEl = document.getElementById("score");
 
-// 隨機圖案
 function randomIcon() {
   return icons[Math.floor(Math.random() * icons.length)];
 }
@@ -90,7 +89,6 @@ function initBoard() {
   renderBoard();
 }
 
-// 渲染棋盤
 function renderBoard() {
   game.innerHTML = "";
   for (let r = 0; r < rows; r++) {
@@ -107,7 +105,6 @@ function renderBoard() {
   }
 }
 
-// 拖曳功能
 let clone = null;
 let startRow, startCol;
 let offsetX, offsetY;
@@ -169,7 +166,7 @@ function dragEnd(e) {
     swapCells(startRow, startCol, endRow, endCol);
     const matches = checkMatches();
     if (matches.length > 0) {
-      handleMatchesSequential(matches);
+      handleMatches(matches);
       clone.remove();
     } else {
       swapCells(startRow, startCol, endRow, endCol);
@@ -195,13 +192,11 @@ function animateReturn(cloneEl, r, c) {
   setTimeout(() => cloneEl.remove(), 310);
 }
 
-// 交換棋盤資料
 function swapCells(r1,c1,r2,c2){
   [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
   renderBoard();
 }
 
-// 檢查三連以上
 function checkMatches() {
   const matches = [];
   for (let r=0;r<rows;r++){
@@ -223,7 +218,88 @@ function checkMatches() {
   return matches;
 }
 
-// 顯示 +1 效果
+function clearMatches(matches){
+  const cleared = new Set();
+  matches.forEach(([r,c])=>{
+    const key = r+'-'+c;
+    if(!cleared.has(key)){
+      board[r][c] = null;
+      showPlusEffect(r,c);
+      cleared.add(key);
+    }
+  });
+  score += cleared.size;
+  scoreEl.textContent = score;
+}
+
+// 使用 transform 滑落動畫
+function applyGravity(){
+  const cells = document.querySelectorAll(".cell");
+  let moved = false;
+
+  for(let c=0;c<cols;c++){
+    let empty = 0;
+    for(let r=rows-1;r>=0;r--){
+      if(!board[r][c]){
+        empty++;
+      } else if(empty>0){
+        board[r+empty][c] = board[r][c];
+        board[r][c] = null;
+
+        const cell = Array.from(cells).find(el => +el.dataset.row===r && +el.dataset.col===c);
+        if(cell){
+          cell.style.transition = "transform 0.3s ease";
+          cell.style.transform = `translateY(${empty*65}px)`;
+          moved = true;
+        }
+      }
+    }
+  }
+
+  if(moved){
+    setTimeout(()=>{
+      renderBoard();
+    }, 320);
+  } else {
+    renderBoard();
+  }
+}
+
+function refillBoard(){
+  let cells = document.querySelectorAll(".cell");
+  let moved = false;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(!board[r][c]){
+        const icon = randomIcon();
+        board[r][c] = icon;
+        const cell = Array.from(cells).find(el => +el.dataset.row===r && +el.dataset.col===c);
+        if(cell){
+          cell.style.transition = "transform 0.3s ease";
+          cell.style.transform = `translateY(-65px)`;
+          moved = true;
+        }
+      }
+    }
+  }
+  if(moved){
+    setTimeout(()=>renderBoard(), 320);
+  } else {
+    renderBoard();
+  }
+}
+
+function handleMatches(matches){
+  clearMatches(matches);
+  setTimeout(()=>{
+    applyGravity();
+    refillBoard();
+    const newMatches=checkMatches();
+    if(newMatches.length>0) handleMatches(newMatches);
+    else if(!hasPossibleMoves()) gameOver();
+  },300);
+}
+
 function showPlusEffect(r,c){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if(!cell) return;
@@ -237,80 +313,11 @@ function showPlusEffect(r,c){
   setTimeout(()=>plus.remove(),800);
 }
 
-// 逐步消除連鎖
-function handleMatchesSequential(matches){
-  if(matches.length===0){
-    if(!hasPossibleMoves()) gameOver();
-    return;
-  }
-  const cleared = new Set();
-  matches.forEach(([r,c])=>{
-    const key=r+'-'+c;
-    if(!cleared.has(key)){
-      board[r][c]=null;
-      showPlusEffect(r,c);
-      cleared.add(key);
-      score++;
-    }
-  });
-  scoreEl.textContent = score;
-  
-  // 滑落動畫
-  setTimeout(()=>{
-    applyGravity();
-    refillBoard();
-    setTimeout(()=>{
-      const newMatches = checkMatches();
-      handleMatchesSequential(newMatches);
-    }, 320);
-  }, 300);
-}
-
-// 滑落動畫
-function applyGravity(){
-  const cells = document.querySelectorAll(".cell");
-  for(let c=0;c<cols;c++){
-    let empty=0;
-    for(let r=rows-1;r>=0;r--){
-      if(!board[r][c]) empty++;
-      else if(empty>0){
-        board[r+empty][c]=board[r][c];
-        board[r][c]=null;
-        const cell = Array.from(cells).find(el => +el.dataset.row===r && +el.dataset.col===c);
-        if(cell){
-          cell.style.transition="transform 0.3s ease";
-          cell.style.transform=`translateY(${empty*65}px)`;
-        }
-      }
-    }
-  }
-  setTimeout(()=>renderBoard(),320);
-}
-
-// 補充新圖
-function refillBoard(){
-  const cells = document.querySelectorAll(".cell");
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(!board[r][c]){
-        board[r][c]=randomIcon();
-        const cell = Array.from(cells).find(el=>+el.dataset.row===r && +el.dataset.col===c);
-        if(cell){
-          cell.style.transition="transform 0.3s ease";
-          cell.style.transform=`translateY(-65px)`;
-        }
-      }
-    }
-  }
-  setTimeout(()=>renderBoard(),320);
-}
-
-// 判斷還能否移動
 function hasPossibleMoves(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c);}
-      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1);}
+      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
+      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
     }
   }
   return false;
@@ -326,5 +333,6 @@ function gameOver(){
 
 initBoard();
 </script>
+
 </body>
 </html>
