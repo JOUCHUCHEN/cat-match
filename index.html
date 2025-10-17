@@ -1,10 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>喵嗚消消樂 8x8</title>
+<style>
+body {
+  text-align: center;
+  background: #222;
+  color: #fff;
+  font-family: "微軟正黑體";
+}
+#game {
+  display: grid;
+  grid-template-columns: repeat(8, 60px);
+  grid-template-rows: repeat(8, 60px);
+  gap: 5px;
+  justify-content: center;
+  margin-top: 20px;
+  touch-action: none;
+  position: relative;
+}
+.cell {
+  width: 60px;
+  height: 60px;
+  background-size: cover;
+  border-radius: 10px;
+  cursor: grab;
+  transition: transform 0.2s;
+  position: relative;
+}
+.dragging {
+  opacity: 0.8;
+  transform: scale(1.2);
+  z-index: 1000;
+  position: fixed;
+  pointer-events: none;
+}
+.score {
+  font-size: 22px;
+  margin-top: 10px;
+}
+.plus-text {
+  position: fixed;
+  font-size: 18px;
+  color: #ffdd00;
+  font-weight: bold;
+  animation: floatUp 0.8s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes floatUp {
+  0% {opacity:1; transform:translateY(0);}
+  100% {opacity:0; transform:translateY(-40px);}
+}
+</style>
+</head>
+<body>
+
+<h2>喵嗚消消樂 8x8</h2>
+<div class="score">喵嗚值：<span id="score">0</span></div>
+<div id="game"></div>
+
+<script>
+const rows = 8, cols = 8;
+const icons = ["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
+let board = [];
+let score = 0;
+
+const game = document.getElementById("game");
+const scoreEl = document.getElementById("score");
+
+function randomIcon() {
+  return icons[Math.floor(Math.random() * icons.length)];
+}
+
+// 初始化棋盤，保證開局無三連
+function initBoard() {
+  do {
+    board = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        row.push(randomIcon());
+      }
+      board.push(row);
+    }
+  } while (checkMatches().length > 0);
+  renderBoard();
+}
+
+function renderBoard() {
+  game.innerHTML = "";
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.style.backgroundImage = `url(./${board[r][c]})`;
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      addDragEvents(cell);
+      game.appendChild(cell);
+    }
+  }
+}
+
+let dragging = null;
+let clone = null;
+let startRow, startCol;
+let offsetX, offsetY;
+
+function addDragEvents(cell) {
+  cell.addEventListener("mousedown", dragStart);
+  cell.addEventListener("touchstart", dragStart);
+}
+
+function dragStart(e) {
+  e.preventDefault();
+  const target = e.target;
+  startRow = +target.dataset.row;
+  startCol = +target.dataset.col;
+
+  // clone 一個跟隨
+  clone = target.cloneNode(true);
+  clone.classList.add("dragging");
+  document.body.appendChild(clone);
+
+  const rect = target.getBoundingClientRect();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  offsetX = x - rect.left;
+  offsetY = y - rect.top;
+  clone.style.left = (x - offsetX) + "px";
+  clone.style.top = (y - offsetY) + "px";
+
+  document.addEventListener("mousemove", dragMove);
+  document.addEventListener("mouseup", dragEnd);
+  document.addEventListener("touchmove", dragMove);
+  document.addEventListener("touchend", dragEnd);
+}
+
+function dragMove(e) {
+  if (!clone) return;
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  clone.style.left = (x - offsetX) + "px";
+  clone.style.top = (y - offsetY) + "px";
+}
+
 function dragEnd(e) {
   if (!clone) return;
   const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
   const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
   const dropCell = document.elementFromPoint(x, y);
   if (!dropCell || !dropCell.classList.contains("cell")) {
-    // 平滑回原位
     animateReturn(clone, startRow, startCol);
     clone = null;
     return;
@@ -45,5 +193,118 @@ function animateReturn(cloneEl, r, c) {
   cloneEl.style.transition = "all 0.3s ease";
   cloneEl.style.left = rect.left + "px";
   cloneEl.style.top = rect.top + "px";
-  setTimeout(() => cloneEl.remove(), 310); // 動畫結束後移除 clone
+  setTimeout(() => cloneEl.remove(), 310);
 }
+
+function swapCells(r1,c1,r2,c2){
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+  renderBoard();
+}
+
+function checkMatches() {
+  const matches = [];
+  for (let r=0;r<rows;r++){
+    let count = 1;
+    for (let c=1;c<cols;c++){
+      if(board[r][c]===board[r][c-1]) count++;
+      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
+    }
+    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
+  }
+  for (let c=0;c<cols;c++){
+    let count=1;
+    for(let r=1;r<rows;r++){
+      if(board[r][c]===board[r-1][c]) count++;
+      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
+    }
+    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
+  }
+  return matches;
+}
+
+function clearMatches(matches){
+  const cleared = new Set();
+  matches.forEach(([r,c])=>{
+    const key = r+'-'+c;
+    if(!cleared.has(key)){
+      board[r][c] = null;
+      showPlusEffect(r,c);
+      cleared.add(key);
+    }
+  });
+  score += cleared.size;
+  scoreEl.textContent = score;
+}
+
+function applyGravity(){
+  for(let c=0;c<cols;c++){
+    for(let r=rows-1;r>=0;r--){
+      if(!board[r][c]){
+        for(let k=r-1;k>=0;k--){
+          if(board[k][c]){
+            board[r][c]=board[k][c];
+            board[k][c]=null;
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
+function refillBoard(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(!board[r][c]) board[r][c]=randomIcon();
+    }
+  }
+}
+
+function handleMatches(matches){
+  clearMatches(matches);
+  setTimeout(()=>{
+    applyGravity();
+    refillBoard();
+    renderBoard();
+    const newMatches=checkMatches();
+    if(newMatches.length>0) handleMatches(newMatches);
+    else if(!hasPossibleMoves()) gameOver();
+  },300);
+}
+
+function showPlusEffect(r,c){
+  const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  if(!cell) return;
+  const rect=cell.getBoundingClientRect();
+  const plus=document.createElement("div");
+  plus.classList.add("plus-text");
+  plus.textContent="+1";
+  plus.style.left=rect.left+"px";
+  plus.style.top=rect.top+"px";
+  document.body.appendChild(plus);
+  setTimeout(()=>plus.remove(),800);
+}
+
+function hasPossibleMoves(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
+      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
+    }
+  }
+  return false;
+}
+
+function swapCellsSimple(r1,c1,r2,c2){
+  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+}
+
+function gameOver(){
+  alert("遊戲結束！最終喵嗚值：" + score);
+}
+
+initBoard();
+</script>
+
+</body>
+</html>
