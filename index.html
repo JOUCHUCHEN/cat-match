@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>抗妖消消樂 8x8</title>
+<title>喵嗚消消樂 8x8</title>
 <style>
   body {
     text-align: center;
@@ -26,33 +26,36 @@
     background-size: cover;
     border-radius: 10px;
     cursor: grab;
-    transition: transform 0.3s;
+    transition: transform 0.2s;
+    position: relative;
   }
-  .cell.dragging {
+  .dragging {
     opacity: 0.8;
     transform: scale(1.2);
+    z-index: 10;
   }
   .score {
     font-size: 22px;
     margin-top: 10px;
   }
   .plus-text {
-    position: absolute;
+    position: fixed;
     font-size: 18px;
-    color: #00ffea;
+    color: #ffdd00;
     font-weight: bold;
-    animation: floatUp 1s ease-out forwards;
+    animation: floatUp 0.8s ease-out forwards;
+    pointer-events: none;
   }
   @keyframes floatUp {
-    from { opacity: 1; transform: translateY(0); }
-    to { opacity: 0; transform: translateY(-40px); }
+    0% {opacity:1; transform:translateY(0);}
+    100% {opacity:0; transform:translateY(-40px);}
   }
 </style>
 </head>
 <body>
 
-<h2>抗妖消消樂 8x8</h2>
-<div class="score">抗妖值：<span id="score">0</span></div>
+<h2>喵嗚消消樂 8x8</h2>
+<div class="score">喵嗚值：<span id="score">0</span></div>
 <div id="game"></div>
 
 <script>
@@ -68,21 +71,19 @@ function randomIcon() {
   return icons[Math.floor(Math.random() * icons.length)];
 }
 
+// 初始化棋盤並保證無三連
 function initBoard() {
-  board = [];
-  for (let r = 0; r < rows; r++) {
-    const row = [];
-    for (let c = 0; c < cols; c++) {
-      row.push(randomIcon());
+  do {
+    board = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        row.push(randomIcon());
+      }
+      board.push(row);
     }
-    board.push(row);
-  }
+  } while (checkMatches().length > 0);
   renderBoard();
-  while (checkMatches().length > 0) {
-    clearMatches(checkMatches());
-    applyGravity();
-    refillBoard();
-  }
 }
 
 function renderBoard() {
@@ -94,7 +95,7 @@ function renderBoard() {
       cell.style.backgroundImage = `url(./${board[r][c]})`;
       cell.dataset.row = r;
       cell.dataset.col = c;
-      addEvent(cell);
+      addDragEvents(cell);
       game.appendChild(cell);
     }
   }
@@ -102,8 +103,9 @@ function renderBoard() {
 
 let dragging = null;
 let startRow, startCol;
+let offsetX, offsetY;
 
-function addEvent(cell) {
+function addDragEvents(cell) {
   cell.addEventListener("mousedown", dragStart);
   cell.addEventListener("touchstart", dragStart);
 }
@@ -116,6 +118,12 @@ function dragStart(e) {
   startRow = +target.dataset.row;
   startCol = +target.dataset.col;
 
+  const rect = target.getBoundingClientRect();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  offsetX = x - rect.left;
+  offsetY = y - rect.top;
+
   document.addEventListener("mousemove", dragMove);
   document.addEventListener("mouseup", dragEnd);
   document.addEventListener("touchmove", dragMove);
@@ -124,27 +132,34 @@ function dragStart(e) {
 
 function dragMove(e) {
   if (!dragging) return;
-  e.preventDefault();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  dragging.style.position = "fixed";
+  dragging.style.left = (x - offsetX) + "px";
+  dragging.style.top = (y - offsetY) + "px";
 }
 
 function dragEnd(e) {
   if (!dragging) return;
   dragging.classList.remove("dragging");
-  const endCell = document.elementFromPoint(
-    e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
-    e.changedTouches ? e.changedTouches[0].clientY : e.clientY
-  );
-  if (!endCell || !endCell.classList.contains("cell")) {
+  dragging.style.position = "";
+  dragging.style.left = "";
+  dragging.style.top = "";
+
+  const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+  const dropCell = document.elementFromPoint(x, y);
+  if (!dropCell || !dropCell.classList.contains("cell")) {
     dragging = null;
     return;
   }
 
-  const endRow = +endCell.dataset.row;
-  const endCol = +endCell.dataset.col;
+  const endRow = +dropCell.dataset.row;
+  const endCol = +dropCell.dataset.col;
 
   const dr = Math.abs(endRow - startRow);
   const dc = Math.abs(endCol - startCol);
-  if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+  if ((dr + dc) === 1) {
     swapCells(startRow, startCol, endRow, endCol);
     const matches = checkMatches();
     if (matches.length > 0) {
@@ -160,53 +175,41 @@ function dragEnd(e) {
   document.removeEventListener("touchend", dragEnd);
 }
 
-function swapCells(r1, c1, r2, c2) {
-  const temp = board[r1][c1];
-  board[r1][c1] = board[r2][c2];
-  board[r2][c2] = temp;
+function swapCells(r1,c1,r2,c2){
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
   renderBoard();
 }
 
 function checkMatches() {
   const matches = [];
   // 橫向
-  for (let r = 0; r < rows; r++) {
+  for (let r=0;r<rows;r++){
     let count = 1;
-    for (let c = 1; c < cols; c++) {
-      if (board[r][c] === board[r][c - 1]) count++;
-      else {
-        if (count >= 3)
-          for (let k = c - count; k < c; k++) matches.push([r, k]);
-        count = 1;
-      }
+    for (let c=1;c<cols;c++){
+      if(board[r][c]===board[r][c-1]) count++;
+      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
     }
-    if (count >= 3)
-      for (let k = cols - count; k < cols; k++) matches.push([r, k]);
+    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
   }
   // 直向
-  for (let c = 0; c < cols; c++) {
-    let count = 1;
-    for (let r = 1; r < rows; r++) {
-      if (board[r][c] === board[r - 1][c]) count++;
-      else {
-        if (count >= 3)
-          for (let k = r - count; k < r; k++) matches.push([k, c]);
-        count = 1;
-      }
+  for (let c=0;c<cols;c++){
+    let count=1;
+    for(let r=1;r<rows;r++){
+      if(board[r][c]===board[r-1][c]) count++;
+      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
     }
-    if (count >= 3)
-      for (let k = rows - count; k < rows; k++) matches.push([k, c]);
+    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
   }
   return matches;
 }
 
-function clearMatches(matches) {
+function clearMatches(matches){
   const cleared = new Set();
-  matches.forEach(([r, c]) => {
-    const key = r + "-" + c;
-    if (!cleared.has(key)) {
+  matches.forEach(([r,c])=>{
+    const key = r+'-'+c;
+    if(!cleared.has(key)){
       board[r][c] = null;
-      showPlusEffect(r, c);
+      showPlusEffect(r,c);
       cleared.add(key);
     }
   });
@@ -214,14 +217,14 @@ function clearMatches(matches) {
   scoreEl.textContent = score;
 }
 
-function applyGravity() {
-  for (let c = 0; c < cols; c++) {
-    for (let r = rows - 1; r >= 0; r--) {
-      if (!board[r][c]) {
-        for (let k = r - 1; k >= 0; k--) {
-          if (board[k][c]) {
-            board[r][c] = board[k][c];
-            board[k][c] = null;
+function applyGravity(){
+  for(let c=0;c<cols;c++){
+    for(let r=rows-1;r>=0;r--){
+      if(!board[r][c]){
+        for(let k=r-1;k>=0;k--){
+          if(board[k][c]){
+            board[r][c]=board[k][c];
+            board[k][c]=null;
             break;
           }
         }
@@ -230,69 +233,55 @@ function applyGravity() {
   }
 }
 
-function refillBoard() {
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (!board[r][c]) board[r][c] = randomIcon();
+function refillBoard(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(!board[r][c]) board[r][c]=randomIcon();
     }
   }
 }
 
-function handleMatches(matches) {
+function handleMatches(matches){
   clearMatches(matches);
-  setTimeout(() => {
+  setTimeout(()=>{
     applyGravity();
     refillBoard();
     renderBoard();
-    const newMatches = checkMatches();
-    if (newMatches.length > 0) handleMatches(newMatches);
-    else if (!hasPossibleMoves()) shuffleBoard();
-  }, 400);
+    const newMatches=checkMatches();
+    if(newMatches.length>0) handleMatches(newMatches);
+    else if(!hasPossibleMoves()) gameOver();
+  },300);
 }
 
-function showPlusEffect(r, c) {
-  const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-  if (!cell) return;
-  const rect = cell.getBoundingClientRect();
-  const plus = document.createElement("div");
+function showPlusEffect(r,c){
+  const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  if(!cell) return;
+  const rect=cell.getBoundingClientRect();
+  const plus=document.createElement("div");
   plus.classList.add("plus-text");
-  plus.textContent = "+1";
-  plus.style.left = rect.left + "px";
-  plus.style.top = rect.top + "px";
+  plus.textContent="+1";
+  plus.style.left=rect.left+"px";
+  plus.style.top=rect.top+"px";
   document.body.appendChild(plus);
-  setTimeout(() => plus.remove(), 1000);
+  setTimeout(()=>plus.remove(),800);
 }
 
-function hasPossibleMoves() {
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (r < rows - 1) { swapCellsSimple(r, c, r+1, c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c);}
-      if (c < cols - 1) { swapCellsSimple(r, c, r, c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1);}
+function hasPossibleMoves(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
+      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
     }
   }
   return false;
 }
 
 function swapCellsSimple(r1,c1,r2,c2){
-  const tmp = board[r1][c1];
-  board[r1][c1] = board[r2][c2];
-  board[r2][c2] = tmp;
+  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
 }
 
-function shuffleBoard() {
-  let flat = board.flat();
-  for (let i=flat.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [flat[i],flat[j]] = [flat[j],flat[i]];
-  }
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      board[r][c] = flat[r*cols+c];
-    }
-  }
-  renderBoard();
-  const newMatches = checkMatches();
-  if(newMatches.length>0) handleMatches(newMatches);
+function gameOver(){
+  alert("遊戲結束！最終喵嗚值：" + score);
 }
 
 initBoard();
