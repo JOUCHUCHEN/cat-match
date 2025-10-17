@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 v8</title>
+<title>喵嗚消消樂 8x8 v9</title>
 <style>
 body {
   text-align: center;
@@ -253,32 +253,35 @@ function clearMatches(matches){
 function applyGravity(){
   let moved = false;
   const cellsToMove = [];
+
+  // 每列從下往上
   for(let c=0;c<cols;c++){
+    let emptySpots = 0;
     for(let r=rows-1;r>=0;r--){
       if(board[r][c]===null){
-        let upper = r-1;
-        while(upper>=0 && board[upper][c]===null) upper--;
-        if(upper>=0){
-          const cellAbove = document.querySelector(`.cell[data-row="${upper}"][data-col="${c}"]`);
-          if(cellAbove){
-            const dy = (r - upper) * cellAbove.offsetHeight;
-            cellsToMove.push({cell: cellAbove, fromRow: upper, toRow: r, col: c, dy});
-            moved = true;
-            board[r][c] = board[upper][c];
-            board[upper][c] = null;
-          }
+        emptySpots++;
+      } else if(emptySpots>0){
+        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        if(cell){
+          const dy = emptySpots * cell.offsetHeight;
+          cellsToMove.push({cell, fromRow:r, toRow:r+emptySpots, dy});
         }
+        board[r+emptySpots][c] = board[r][c];
+        board[r][c] = null;
+        moved = true;
       }
     }
   }
 
-  cellsToMove.forEach(item => {
+  // 套用動畫
+  cellsToMove.forEach(item=>{
     item.cell.style.transition = "transform 0.5s ease";
     item.cell.style.transform = `translateY(${item.dy}px)`;
   });
 
+  // 動畫結束後清除 transform 並刷新 DOM
   setTimeout(()=>{
-    cellsToMove.forEach(item => {
+    cellsToMove.forEach(item=>{
       item.cell.style.transition = "";
       item.cell.style.transform = "";
     });
@@ -350,3 +353,4 @@ initBoard();
 
 </body>
 </html>
+
