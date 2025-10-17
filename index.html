@@ -3,207 +3,300 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>貓咪消消樂 8x8 完整版</title>
+<title>抗妖消消樂 8x8</title>
 <style>
-  body { background: linear-gradient(#ffe6cc,#fff); font-family:"Comic Sans MS",sans-serif; text-align:center; user-select:none; overflow:hidden; }
-  h1{margin-top:20px;color:#d65a31;}
-  #game{display:grid;grid-template-columns:repeat(8,60px);grid-template-rows:repeat(8,60px);gap:4px;justify-content:center;margin:20px auto;}
-  .cell{width:60px;height:60px;border-radius:12px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,0.2);position:relative;overflow:hidden;}
-  .cell img{width:55px;height:55px;pointer-events:none;position:absolute;top:0;left:50%;transform:translateX(-50%) translateY(0);transition:transform 0.25s ease;}
-  .match{animation:pop 0.3s ease;}
-  @keyframes pop{0%{transform:scale(1);}50%{transform:scale(1.5);}100%{transform:scale(0);}}
-  #score{font-size:20px;margin-top:10px;color:#333;}
-  #gameOver{display:none;font-size:28px;color:#b00020;margin-top:15px;}
+  body {
+    text-align: center;
+    background: #222;
+    color: #fff;
+    font-family: "微軟正黑體";
+  }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 5px;
+    justify-content: center;
+    margin-top: 20px;
+    touch-action: none;
+  }
+  .cell {
+    width: 60px;
+    height: 60px;
+    background-size: cover;
+    border-radius: 10px;
+    cursor: grab;
+    transition: transform 0.3s;
+  }
+  .cell.dragging {
+    opacity: 0.8;
+    transform: scale(1.2);
+  }
+  .score {
+    font-size: 22px;
+    margin-top: 10px;
+  }
+  .plus-text {
+    position: absolute;
+    font-size: 18px;
+    color: #00ffea;
+    font-weight: bold;
+    animation: floatUp 1s ease-out forwards;
+  }
+  @keyframes floatUp {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-40px); }
+  }
 </style>
 </head>
 <body>
-<h1>🐾 貓咪消消樂 8x8 完整版 🐾</h1>
-<div id="game"></div>
-<div id="score">分數：0</div>
-<div id="gameOver">🎮 遊戲結束！</div>
 
-<audio id="matchSound" src="match.mp3"></audio>
-<audio id="endSound" src="end.mp3"></audio>
+<h2>抗妖消消樂 8x8</h2>
+<div class="score">抗妖值：<span id="score">0</span></div>
+<div id="game"></div>
 
 <script>
-const gridSize=8;
-const images=["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
-let grid=[];
-let score=0;
-let dragging=null;
-let draggingElement=null;
-let gameOver=false;
+const rows = 8, cols = 8;
+const icons = ["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
+let board = [];
+let score = 0;
 
-const game=document.getElementById("game");
-const scoreDisplay=document.getElementById("score");
-const gameOverDisplay=document.getElementById("gameOver");
-const matchSound=document.getElementById("matchSound");
-const endSound=document.getElementById("endSound");
+const game = document.getElementById("game");
+const scoreEl = document.getElementById("score");
 
-// ===== 建立格子 =====
-function createGrid(){
-  grid=[];
-  game.innerHTML="";
-  for(let i=0;i<gridSize*gridSize;i++){
-    const cell=document.createElement("div");
-    cell.className="cell";
-    const img=document.createElement("img");
-    let newSrc;
-    do{
-      newSrc=images[Math.floor(Math.random()*images.length)];
-      img.src=newSrc;
-    }while(createsMatch(i,newSrc));
-    cell.appendChild(img);
-    cell.dataset.index=i;
-    addDragTouchEvents(cell);
-    game.appendChild(cell);
-    grid.push(cell);
+function randomIcon() {
+  return icons[Math.floor(Math.random() * icons.length)];
+}
+
+function initBoard() {
+  board = [];
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    for (let c = 0; c < cols; c++) {
+      row.push(randomIcon());
+    }
+    board.push(row);
+  }
+  renderBoard();
+  while (checkMatches().length > 0) {
+    clearMatches(checkMatches());
+    applyGravity();
+    refillBoard();
   }
 }
 
-// 避免初始三連
-function createsMatch(index,src){
-  const r=Math.floor(index/gridSize);
-  const c=index%gridSize;
-  if(c>=2){const l1=grid[index-1]?.querySelector("img").src; const l2=grid[index-2]?.querySelector("img").src; if(l1===src && l2===src) return true;}
-  if(r>=2){const u1=grid[index-gridSize]?.querySelector("img").src; const u2=grid[index-gridSize*2]?.querySelector("img").src; if(u1===src && u2===src) return true;}
-  return false;
+function renderBoard() {
+  game.innerHTML = "";
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.style.backgroundImage = `url(./${board[r][c]})`;
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      addEvent(cell);
+      game.appendChild(cell);
+    }
+  }
 }
 
-// ===== 拖曳事件 =====
-function addDragTouchEvents(cell){
-  cell.addEventListener("mousedown",startDrag);
-  cell.addEventListener("touchstart",startDrag);
-  cell.addEventListener("mouseup",endDrag);
-  cell.addEventListener("touchend",endDrag);
-  cell.addEventListener("mousemove",moveDrag);
-  cell.addEventListener("touchmove",moveDrag);
+let dragging = null;
+let startRow, startCol;
+
+function addEvent(cell) {
+  cell.addEventListener("mousedown", dragStart);
+  cell.addEventListener("touchstart", dragStart);
 }
-function startDrag(e){
-  if(gameOver) return;
+
+function dragStart(e) {
   e.preventDefault();
-  dragging=e.currentTarget;
+  const target = e.target;
+  dragging = target;
   dragging.classList.add("dragging");
-  draggingElement=dragging.querySelector("img").cloneNode();
-  draggingElement.style.position="fixed";
-  draggingElement.style.pointerEvents="none";
-  draggingElement.style.zIndex="1000";
-  draggingElement.style.width="55px";
-  draggingElement.style.height="55px";
-  document.body.appendChild(draggingElement);
-  moveDrag(e);
+  startRow = +target.dataset.row;
+  startCol = +target.dataset.col;
+
+  document.addEventListener("mousemove", dragMove);
+  document.addEventListener("mouseup", dragEnd);
+  document.addEventListener("touchmove", dragMove);
+  document.addEventListener("touchend", dragEnd);
 }
-function moveDrag(e){
-  if(!draggingElement) return;
-  let x,y;
-  if(e.touches && e.touches[0]){x=e.touches[0].clientX;y=e.touches[0].clientY;}
-  else{x=e.clientX;y=e.clientY;}
-  draggingElement.style.left=x-27+"px";
-  draggingElement.style.top=y-27+"px";
+
+function dragMove(e) {
+  if (!dragging) return;
+  e.preventDefault();
 }
-function areAdjacent(a,b){
-  const i=parseInt(a.dataset.index);
-  const j=parseInt(b.dataset.index);
-  const r1=Math.floor(i/gridSize),c1=i%gridSize;
-  const r2=Math.floor(j/gridSize),c2=j%gridSize;
-  return (Math.abs(r1-r2)+Math.abs(c1-c2))===1;
-}
-function endDrag(e){
-  if(!dragging) return;
+
+function dragEnd(e) {
+  if (!dragging) return;
   dragging.classList.remove("dragging");
-  if(draggingElement){draggingElement.remove();draggingElement=null;}
-  let target=document.elementFromPoint(e.changedTouches?e.changedTouches[0].clientX:e.clientX,e.changedTouches?e.changedTouches[0].clientY:e.clientY);
-  if(target && target.classList.contains("cell") && target!==dragging && areAdjacent(dragging,target)){
-    swapCells(dragging,target);
-    cascade();
+  const endCell = document.elementFromPoint(
+    e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
+    e.changedTouches ? e.changedTouches[0].clientY : e.clientY
+  );
+  if (!endCell || !endCell.classList.contains("cell")) {
+    dragging = null;
+    return;
   }
-  dragging=null;
-}
-function swapCells(a,b){
-  const imgA=a.querySelector("img");
-  const imgB=b.querySelector("img");
-  const temp=imgA.src; imgA.src=imgB.src; imgB.src=temp;
-}
 
-// ===== 延遲 =====
-function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+  const endRow = +endCell.dataset.row;
+  const endCol = +endCell.dataset.col;
 
-// ===== 檢查三連 =====
-function checkMatches(){
-  let matched=[];
-  for(let r=0;r<gridSize;r++){
-    for(let c=0;c<gridSize-2;c++){
-      const i=r*gridSize+c;
-      const s1=grid[i].querySelector("img").src;
-      const s2=grid[i+1].querySelector("img").src;
-      const s3=grid[i+2].querySelector("img").src;
-      if(s1===s2 && s2===s3) matched.push(i,i+1,i+2);
+  const dr = Math.abs(endRow - startRow);
+  const dc = Math.abs(endCol - startCol);
+  if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+    swapCells(startRow, startCol, endRow, endCol);
+    const matches = checkMatches();
+    if (matches.length > 0) {
+      handleMatches(matches);
+    } else {
+      swapCells(startRow, startCol, endRow, endCol);
     }
   }
-  for(let c=0;c<gridSize;c++){
-    for(let r=0;r<gridSize-2;r++){
-      const i=r*gridSize+c;
-      const s1=grid[i].querySelector("img").src;
-      const s2=grid[i+gridSize].querySelector("img").src;
-      const s3=grid[i+gridSize*2].querySelector("img").src;
-      if(s1===s2 && s2===s3) matched.push(i,i+gridSize,i+gridSize*2);
-    }
-  }
-  return [...new Set(matched)];
+  dragging = null;
+  document.removeEventListener("mousemove", dragMove);
+  document.removeEventListener("mouseup", dragEnd);
+  document.removeEventListener("touchmove", dragMove);
+  document.removeEventListener("touchend", dragEnd);
 }
 
-// ===== 連鎖消除 =====
-async function cascade(){
-  let matched=checkMatches();
-  while(matched.length>0){
-    matchSound.currentTime=0; matchSound.play();
-    score+=matched.length*10; scoreDisplay.textContent="分數："+score;
-    for(const i of matched){
-      const img=grid[i].querySelector("img");
-      img.classList.add("match");
-    }
-    await delay(250);
-    for(const i of matched){
-      grid[i].querySelector("img").src="";
-      grid[i].querySelector("img").classList.remove("match");
-    }
-    await dropImages();
-    matched=checkMatches();
-  }
-  if(!hasAnyMatches()) endGame();
+function swapCells(r1, c1, r2, c2) {
+  const temp = board[r1][c1];
+  board[r1][c1] = board[r2][c2];
+  board[r2][c2] = temp;
+  renderBoard();
 }
 
-// ===== 下落動畫 =====
-async function dropImages(){
-  for(let c=0;c<gridSize;c++){
-    for(let r=gridSize-1;r>=0;r--){
-      const i=r*gridSize+c;
-      const img=grid[i].querySelector("img");
-      if(img.src===""){
-        let moved=false;
-        for(let k=r-1;k>=0;k--){
-          const above=grid[k*gridSize+c].querySelector("img");
-          if(above.src!==""){
-            img.src=above.src; above.src="";
-            img.style.transform="translateY(-60px)";
-            await delay(50);
-            img.style.transform="translateY(0)";
-            moved=true; break;
+function checkMatches() {
+  const matches = [];
+  // 橫向
+  for (let r = 0; r < rows; r++) {
+    let count = 1;
+    for (let c = 1; c < cols; c++) {
+      if (board[r][c] === board[r][c - 1]) count++;
+      else {
+        if (count >= 3)
+          for (let k = c - count; k < c; k++) matches.push([r, k]);
+        count = 1;
+      }
+    }
+    if (count >= 3)
+      for (let k = cols - count; k < cols; k++) matches.push([r, k]);
+  }
+  // 直向
+  for (let c = 0; c < cols; c++) {
+    let count = 1;
+    for (let r = 1; r < rows; r++) {
+      if (board[r][c] === board[r - 1][c]) count++;
+      else {
+        if (count >= 3)
+          for (let k = r - count; k < r; k++) matches.push([k, c]);
+        count = 1;
+      }
+    }
+    if (count >= 3)
+      for (let k = rows - count; k < rows; k++) matches.push([k, c]);
+  }
+  return matches;
+}
+
+function clearMatches(matches) {
+  const cleared = new Set();
+  matches.forEach(([r, c]) => {
+    const key = r + "-" + c;
+    if (!cleared.has(key)) {
+      board[r][c] = null;
+      showPlusEffect(r, c);
+      cleared.add(key);
+    }
+  });
+  score += cleared.size;
+  scoreEl.textContent = score;
+}
+
+function applyGravity() {
+  for (let c = 0; c < cols; c++) {
+    for (let r = rows - 1; r >= 0; r--) {
+      if (!board[r][c]) {
+        for (let k = r - 1; k >= 0; k--) {
+          if (board[k][c]) {
+            board[r][c] = board[k][c];
+            board[k][c] = null;
+            break;
           }
         }
-        if(!moved){ img.src=images[Math.floor(Math.random()*images.length)]; img.style.transform="translateY(-60px)"; await delay(50); img.style.transform="translateY(0)";}
       }
     }
   }
 }
 
-// ===== 是否有可消除 =====
-function hasAnyMatches(){return checkMatches().length>0;}
+function refillBoard() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!board[r][c]) board[r][c] = randomIcon();
+    }
+  }
+}
 
-// ===== 遊戲結束 =====
-function endGame(){gameOver=true; gameOverDisplay.style.display="block"; endSound.play();}
+function handleMatches(matches) {
+  clearMatches(matches);
+  setTimeout(() => {
+    applyGravity();
+    refillBoard();
+    renderBoard();
+    const newMatches = checkMatches();
+    if (newMatches.length > 0) handleMatches(newMatches);
+    else if (!hasPossibleMoves()) shuffleBoard();
+  }, 400);
+}
 
-createGrid();
+function showPlusEffect(r, c) {
+  const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  if (!cell) return;
+  const rect = cell.getBoundingClientRect();
+  const plus = document.createElement("div");
+  plus.classList.add("plus-text");
+  plus.textContent = "+1";
+  plus.style.left = rect.left + "px";
+  plus.style.top = rect.top + "px";
+  document.body.appendChild(plus);
+  setTimeout(() => plus.remove(), 1000);
+}
+
+function hasPossibleMoves() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (r < rows - 1) { swapCellsSimple(r, c, r+1, c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c);}
+      if (c < cols - 1) { swapCellsSimple(r, c, r, c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1);}
+    }
+  }
+  return false;
+}
+
+function swapCellsSimple(r1,c1,r2,c2){
+  const tmp = board[r1][c1];
+  board[r1][c1] = board[r2][c2];
+  board[r2][c2] = tmp;
+}
+
+function shuffleBoard() {
+  let flat = board.flat();
+  for (let i=flat.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [flat[i],flat[j]] = [flat[j],flat[i]];
+  }
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      board[r][c] = flat[r*cols+c];
+    }
+  }
+  renderBoard();
+  const newMatches = checkMatches();
+  if(newMatches.length>0) handleMatches(newMatches);
+}
+
+initBoard();
 </script>
+
 </body>
 </html>
