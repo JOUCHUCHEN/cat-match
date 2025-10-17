@@ -1,313 +1,326 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>消消樂遊戲</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>喵嗚消消樂 8x8</title>
 <style>
-  body {
-    margin: 0;
-    background: #f4f7fa;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: "Microsoft JhengHei", sans-serif;
-    user-select: none;
-    touch-action: none;
-  }
+body {
+  text-align: center;
+  background: #222;
+  color: #fff;
+  font-family: "微軟正黑體";
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
 
-  h1 {
-    margin: 20px;
-    color: #444;
-  }
+#game {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  gap: 1.2vw;
+  justify-content: center;
+  width: 90vw;
+  max-width: 480px;
+  aspect-ratio: 1/1;
+  margin: 20px auto;
+  position: relative;
+  touch-action: none;
+}
 
-  #board {
-    display: grid;
-    grid-template-columns: repeat(6, 60px);
-    grid-template-rows: repeat(6, 60px);
-    gap: 5px;
-    position: relative;
-  }
+.cell {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  border-radius: 10%;
+  cursor: grab;
+  position: relative;
+  transition: transform 0.35s ease, background-image 0.35s ease;
+}
 
-  .cell {
-    width: 60px;
-    height: 60px;
-    border-radius: 10px;
-    background: #dbeafe;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.25s;
-  }
+.dragging {
+  opacity: 0.8;
+  transform: scale(1.2);
+  z-index: 1000;
+  position: fixed;
+  pointer-events: none;
+}
 
-  .cell img {
-    width: 56px;
-    height: 56px;
-    border-radius: 8px;
-    pointer-events: none;
-    transition: transform 0.25s ease;
-  }
+.score {
+  font-size: 5vw;
+  margin-top: 3vw;
+}
 
-  .dragging {
-    position: fixed;
-    z-index: 999;
-    pointer-events: none;
-    transform: scale(1.1);
-    opacity: 0.9;
-  }
+.plus-text {
+  position: fixed;
+  font-size: 4vw;
+  color: #ffdd00;
+  font-weight: bold;
+  animation: floatUp 0.8s ease-out forwards;
+  pointer-events: none;
+}
 
-  @keyframes fall {
-    from { transform: translateY(-70px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
+@keyframes floatUp {
+  0% {opacity:1; transform:translateY(0);}
+  100% {opacity:0; transform:translateY(-40px);}
+}
 
-  .fall {
-    animation: fall 0.35s ease-out forwards;
-  }
+@media (min-width: 600px) {
+  .score { font-size: 22px; }
+  .plus-text { font-size: 18px; }
+}
 </style>
 </head>
 <body>
-  <h1>🌟 消消樂遊戲</h1>
-  <div id="board"></div>
 
-  <script>
-    const rows = 6, cols = 6;
-    const board = document.getElementById("board");
-    const images = [
-      "https://i.imgur.com/8w6gQYQ.png",
-      "https://i.imgur.com/fbM7sQ1.png",
-      "https://i.imgur.com/nm5y1TG.png",
-      "https://i.imgur.com/Wnm4s3Z.png",
-      "https://i.imgur.com/vcJb1qf.png",
-      "https://i.imgur.com/CcV2czx.png"
-    ];
-    let grid = [];
-    let startRow, startCol;
-    let clone = null;
-    let offsetX, offsetY;
+<h2>喵嗚消消樂 8x8</h2>
+<div class="score">喵嗚值：<span id="score">0</span></div>
+<div id="game"></div>
 
-    function createCell(r, c, imgSrc) {
+<script>
+const rows = 8, cols = 8;
+const icons = ["1.png","2.png","3.png","4.png","5.png","6.png","7.png"];
+let board = [];
+let score = 0;
+
+const game = document.getElementById("game");
+const scoreEl = document.getElementById("score");
+
+function randomIcon() {
+  return icons[Math.floor(Math.random() * icons.length)];
+}
+
+function initBoard() {
+  do {
+    board = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        row.push(randomIcon());
+      }
+      board.push(row);
+    }
+  } while (checkMatches().length > 0);
+  renderBoard();
+}
+
+function renderBoard() {
+  game.innerHTML = "";
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const cell = document.createElement("div");
       cell.classList.add("cell");
+      cell.style.backgroundImage = `url("${board[r][c]}")`;
       cell.dataset.row = r;
       cell.dataset.col = c;
-      const img = document.createElement("img");
-      img.src = imgSrc;
-      cell.appendChild(img);
-      board.appendChild(cell);
-      return cell;
+      addDragEvents(cell);
+      game.appendChild(cell);
     }
+  }
+}
 
-    function initBoard() {
-      board.innerHTML = "";
-      grid = [];
-      for (let r = 0; r < rows; r++) {
-        const row = [];
-        for (let c = 0; c < cols; c++) {
-          const imgSrc = images[Math.floor(Math.random() * images.length)];
-          const cell = createCell(r, c, imgSrc);
-          row.push(imgSrc);
-          cell.addEventListener("mousedown", dragStart);
-          cell.addEventListener("touchstart", dragStart, {passive:false});
-        }
-        grid.push(row);
-      }
+let clone = null;
+let startRow, startCol;
+let offsetX, offsetY;
+
+function addDragEvents(cell) {
+  cell.addEventListener("mousedown", dragStart);
+  cell.addEventListener("touchstart", dragStart, {passive:false});
+}
+
+function dragStart(e) {
+  e.preventDefault();
+  const target = e.target;
+  startRow = +target.dataset.row;
+  startCol = +target.dataset.col;
+
+  clone = target.cloneNode(true);
+  clone.classList.add("dragging");
+  document.body.appendChild(clone);
+
+  const rect = target.getBoundingClientRect();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  offsetX = x - rect.left;
+  offsetY = y - rect.top;
+  clone.style.left = (x - offsetX) + "px";
+  clone.style.top = (y - offsetY) + "px";
+
+  document.addEventListener("mousemove", dragMove);
+  document.addEventListener("mouseup", dragEnd);
+  document.addEventListener("touchmove", dragMove, {passive:false});
+  document.addEventListener("touchend", dragEnd);
+}
+
+function dragMove(e) {
+  if (!clone) return;
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  clone.style.left = (x - offsetX) + "px";
+  clone.style.top = (y - offsetY) + "px";
+}
+
+function dragEnd(e) {
+  if (!clone) return;
+  const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+  const dropCell = document.elementFromPoint(x, y);
+  if (!dropCell || !dropCell.classList.contains("cell")) {
+    animateReturn(clone, startRow, startCol);
+    clone = null;
+    return;
+  }
+  const endRow = +dropCell.dataset.row;
+  const endCol = +dropCell.dataset.col;
+  const dr = Math.abs(endRow - startRow);
+  const dc = Math.abs(endCol - startCol);
+  if ((dr + dc) === 1) {
+    swapCells(startRow, startCol, endRow, endCol);
+    const matches = checkMatches();
+    if (matches.length > 0) {
+      handleMatches(matches);
+      clone.remove();
+    } else {
+      swapCells(startRow, startCol, endRow, endCol);
+      animateReturn(clone, startRow, startCol);
     }
+  } else {
+    animateReturn(clone, startRow, startCol);
+  }
+  document.removeEventListener("mousemove", dragMove);
+  document.removeEventListener("mouseup", dragEnd);
+  document.removeEventListener("touchmove", dragMove);
+  document.removeEventListener("touchend", dragEnd);
+}
 
-    function swapCells(r1, c1, r2, c2) {
-      const tmp = grid[r1][c1];
-      grid[r1][c1] = grid[r2][c2];
-      grid[r2][c2] = tmp;
+function animateReturn(cloneEl, r, c) {
+  const targetCell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  if (!targetCell) { cloneEl.remove(); return; }
+  const rect = targetCell.getBoundingClientRect();
+  cloneEl.style.transition = "all 0.35s ease";
+  cloneEl.style.left = rect.left + "px";
+  cloneEl.style.top = rect.top + "px";
+  setTimeout(() => cloneEl.remove(), 360);
+}
 
-      const cells = document.querySelectorAll(".cell");
-      const cell1 = [...cells].find(c => +c.dataset.row===r1 && +c.dataset.col===c1);
-      const cell2 = [...cells].find(c => +c.dataset.row===r2 && +c.dataset.col===c2);
-      const img1 = cell1.querySelector("img").src;
-      cell1.querySelector("img").src = cell2.querySelector("img").src;
-      cell2.querySelector("img").src = img1;
+function swapCells(r1,c1,r2,c2){
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+  renderBoard();
+}
+
+function checkMatches() {
+  const matches = [];
+  for (let r=0;r<rows;r++){
+    let count = 1;
+    for (let c=1;c<cols;c++){
+      if(board[r][c]===board[r][c-1]) count++;
+      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
     }
-
-    function checkMatches() {
-      const matches = [];
-      // 橫向
-      for (let r = 0; r < rows; r++) {
-        let count = 1;
-        for (let c = 1; c < cols; c++) {
-          if (grid[r][c] === grid[r][c-1]) {
-            count++;
-          } else {
-            if (count >= 3) matches.push({r, c: c-1, len: count, dir: "row"});
-            count = 1;
-          }
-        }
-        if (count >= 3) matches.push({r, c: cols-1, len: count, dir: "row"});
-      }
-      // 直向
-      for (let c = 0; c < cols; c++) {
-        let count = 1;
-        for (let r = 1; r < rows; r++) {
-          if (grid[r][c] === grid[r-1][c]) {
-            count++;
-          } else {
-            if (count >= 3) matches.push({r: r-1, c, len: count, dir: "col"});
-            count = 1;
-          }
-        }
-        if (count >= 3) matches.push({r: rows-1, c, len: count, dir: "col"});
-      }
-      return matches;
+    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
+  }
+  for (let c=0;c<cols;c++){
+    let count=1;
+    for(let r=1;r<rows;r++){
+      if(board[r][c]===board[r-1][c]) count++;
+      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
     }
+    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
+  }
+  return matches;
+}
 
-    function handleMatches(matches) {
-      const cells = document.querySelectorAll(".cell");
-      const toRemove = new Set();
-
-      for (const m of matches) {
-        if (m.dir === "row") {
-          for (let i = 0; i < m.len; i++) toRemove.add(`${m.r},${m.c-i}`);
-        } else {
-          for (let i = 0; i < m.len; i++) toRemove.add(`${m.r-i},${m.c}`);
-        }
-      }
-
-      for (const key of toRemove) {
-        const [r, c] = key.split(",").map(Number);
-        grid[r][c] = null;
-        const cell = [...cells].find(cc => +cc.dataset.row===r && +cc.dataset.col===c);
-        if (cell) cell.querySelector("img").style.opacity = "0";
-      }
-
-      setTimeout(() => applyGravity(), 350);
+function clearMatches(matches){
+  const cleared = new Set();
+  matches.forEach(([r,c])=>{
+    const key = r+'-'+c;
+    if(!cleared.has(key)){
+      board[r][c] = null;
+      showPlusEffect(r,c);
+      cleared.add(key);
     }
+  });
+  score += cleared.size;
+  scoreEl.textContent = score;
+}
 
-    function applyGravity() {
-      const cells = document.querySelectorAll(".cell");
-      for (let c = 0; c < cols; c++) {
-        let empty = 0;
-        for (let r = rows - 1; r >= 0; r--) {
-          if (grid[r][c] === null) {
-            empty++;
-          } else if (empty > 0) {
-            grid[r + empty][c] = grid[r][c];
-            grid[r][c] = null;
-            const cellFrom = [...cells].find(cc => +cc.dataset.row===r && +cc.dataset.col===c);
-            const cellTo = [...cells].find(cc => +cc.dataset.row===r+empty && +cc.dataset.col===c);
-            const imgFrom = cellFrom.querySelector("img");
-            const imgTo = cellTo.querySelector("img");
-            imgTo.src = imgFrom.src;
-            imgTo.classList.add("fall");
-            imgFrom.style.opacity = "0";
-            setTimeout(() => imgTo.classList.remove("fall"), 400);
-          }
-        }
-        for (let r = 0; r < rows; r++) {
-          if (grid[r][c] === null) {
-            const newImg = images[Math.floor(Math.random() * images.length)];
-            grid[r][c] = newImg;
-            const cell = [...cells].find(cc => +cc.dataset.row===r && +cc.dataset.col===c);
-            const img = cell.querySelector("img");
-            img.src = newImg;
-            img.classList.add("fall");
-            img.style.opacity = "1";
-            setTimeout(() => img.classList.remove("fall"), 400);
-          }
-        }
-      }
-      const newMatches = checkMatches();
-      if (newMatches.length > 0) handleMatches(newMatches);
-    }
-
-    // ✅ 新版 dragStart（修正電腦放大圖問題）
-    function dragStart(e) {
-      e.preventDefault();
-      const target = e.target;
-      startRow = +target.dataset.row;
-      startCol = +target.dataset.col;
-
-      const startX = e.touches ? e.touches[0].clientX : e.clientX;
-      const startY = e.touches ? e.touches[0].clientY : e.clientY;
-      const rect = target.getBoundingClientRect();
-      offsetX = startX - rect.left;
-      offsetY = startY - rect.top;
-
-      let moved = false;
-
-      function startClone() {
-        if (clone) return;
-        clone = target.cloneNode(true);
-        clone.classList.add("dragging");
-        document.body.appendChild(clone);
-        clone.style.left = (startX - offsetX) + "px";
-        clone.style.top = (startY - offsetY) + "px";
-      }
-
-      function onMove(ev) {
-        const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
-        const y = ev.touches ? ev.touches[0].clientY : ev.clientY;
-        if (!moved && (Math.abs(x - startX) > 5 || Math.abs(y - startY) > 5)) {
+function applyGravity(){
+  let moved = false;
+  for(let c=0;c<cols;c++){
+    for(let r=rows-1;r>=0;r--){
+      if(board[r][c]===null){
+        let upper = r-1;
+        while(upper>=0 && board[upper][c]===null) upper--;
+        if(upper>=0){
+          board[r][c] = board[upper][c];
+          board[upper][c] = null;
           moved = true;
-          startClone();
-        }
-        if (clone) {
-          clone.style.left = (x - offsetX) + "px";
-          clone.style.top = (y - offsetY) + "px";
         }
       }
+    }
+  }
+  renderBoard();
+  return moved;
+}
 
-      function onEnd(ev) {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onEnd);
-        document.removeEventListener("touchmove", onMove);
-        document.removeEventListener("touchend", onEnd);
-
-        if (!moved) return; // 點一下不拖，不做任何事
-
-        const x = ev.changedTouches ? ev.changedTouches[0].clientX : ev.clientX;
-        const y = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
-        const dropCell = document.elementFromPoint(x, y);
-        if (!dropCell || !dropCell.classList.contains("cell")) {
-          animateReturn(clone, startRow, startCol);
-          clone = null;
-          return;
-        }
-
-        const endRow = +dropCell.dataset.row;
-        const endCol = +dropCell.dataset.col;
-        const dr = Math.abs(endRow - startRow);
-        const dc = Math.abs(endCol - startCol);
-
-        if ((dr + dc) === 1) {
-          swapCells(startRow, startCol, endRow, endCol);
-          const matches = checkMatches();
-          if (matches.length > 0) {
-            handleMatches(matches);
-            clone.remove();
-          } else {
-            swapCells(startRow, startCol, endRow, endCol);
-            animateReturn(clone, startRow, startCol);
-          }
-        } else {
-          animateReturn(clone, startRow, startCol);
-        }
+function refillBoard(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(board[r][c]===null){
+        board[r][c] = randomIcon();
       }
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onEnd);
-      document.addEventListener("touchmove", onMove, {passive:false});
-      document.addEventListener("touchend", onEnd);
     }
+  }
+  renderBoard();
+}
 
-    function animateReturn(element, row, col) {
-      if (!element) return;
-      const targetCell = document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
-      const rect = targetCell.getBoundingClientRect();
-      element.style.transition = "all 0.3s ease";
-      element.style.left = rect.left + "px";
-      element.style.top = rect.top + "px";
-      setTimeout(() => element.remove(), 300);
+function handleMatches(matches){
+  clearMatches(matches);
+  setTimeout(()=>{
+    let moved = applyGravity();
+    setTimeout(()=>{
+      refillBoard();
+      const newMatches = checkMatches();
+      if(newMatches.length>0) handleMatches(newMatches);
+      else if(!hasPossibleMoves()) gameOver();
+    }, moved? 250:0);
+  },350);
+}
+
+function showPlusEffect(r,c){
+  const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  if(!cell) return;
+  const rect=cell.getBoundingClientRect();
+  const plus=document.createElement("div");
+  plus.classList.add("plus-text");
+  plus.textContent="+1";
+  plus.style.left=rect.left+"px";
+  plus.style.top=rect.top+"px";
+  document.body.appendChild(plus);
+  setTimeout(()=>plus.remove(),800);
+}
+
+function hasPossibleMoves(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
+      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
     }
+  }
+  return false;
+}
 
-    initBoard();
-  </script>
+function swapCellsSimple(r1,c1,r2,c2){
+  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+}
+
+function gameOver(){
+  alert("遊戲結束！最終喵嗚值：" + score);
+}
+
+initBoard();
+</script>
+
 </body>
 </html>
