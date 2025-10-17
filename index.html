@@ -84,6 +84,7 @@ const gameOverDisplay = document.getElementById("gameOver");
 const matchSound = document.getElementById("matchSound");
 const endSound = document.getElementById("endSound");
 
+// ===== 建立格子，保證初始沒有三連線 =====
 function createGrid() {
   grid = [];
   game.innerHTML = "";
@@ -91,16 +92,40 @@ function createGrid() {
     const cell = document.createElement("div");
     cell.className = "cell";
     const img = document.createElement("img");
-    img.src = images[Math.floor(Math.random() * images.length)];
+    let newSrc;
+    do {
+      newSrc = images[Math.floor(Math.random() * images.length)];
+      img.src = newSrc;
+    } while (createsMatch(i, newSrc));
     cell.appendChild(img);
     cell.dataset.index = i;
     addDragTouchEvents(cell);
     game.appendChild(cell);
     grid.push(cell);
   }
-  if (!hasAnyMatches()) shuffleGrid();
 }
 
+// 檢查放這個圖案會不會造成三連線
+function createsMatch(index, src) {
+  const r = Math.floor(index / gridSize);
+  const c = index % gridSize;
+
+  // 橫向
+  if (c >= 2) {
+    const left1 = grid[index - 1]?.querySelector("img").src;
+    const left2 = grid[index - 2]?.querySelector("img").src;
+    if (left1 === src && left2 === src) return true;
+  }
+  // 直向
+  if (r >= 2) {
+    const up1 = grid[index - gridSize]?.querySelector("img").src;
+    const up2 = grid[index - gridSize * 2]?.querySelector("img").src;
+    if (up1 === src && up2 === src) return true;
+  }
+  return false;
+}
+
+// ===== 拖曳事件 =====
 function addDragTouchEvents(cell) {
   cell.addEventListener("mousedown", startDrag);
   cell.addEventListener("touchstart", startDrag);
@@ -142,6 +167,7 @@ function moveDrag(e) {
 function endDrag(e) {
   if (!dragging) return;
   dragging.classList.remove("dragging");
+
   if (draggingElement) {
     draggingElement.remove();
     draggingElement = null;
@@ -151,18 +177,22 @@ function endDrag(e) {
     e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
     e.changedTouches ? e.changedTouches[0].clientY : e.clientY
   );
+
   if (target && target.classList.contains("cell") && target !== dragging) {
-    swapCells(dragging, target);
+    const source = dragging; // 保存原位
+    swapCells(source, target);
     if (checkAndRemoveMatches()) {
       setTimeout(() => dropImages(), 500);
     } else {
       // 無法消除 → 換回原位
-      setTimeout(() => swapCells(dragging, target), 200);
+      setTimeout(() => swapCells(source, target), 200);
     }
   }
+
   dragging = null;
 }
 
+// ===== 交換格子圖案 =====
 function swapCells(cellA, cellB) {
   const imgA = cellA.querySelector("img").src;
   const imgB = cellB.querySelector("img").src;
@@ -170,6 +200,7 @@ function swapCells(cellA, cellB) {
   cellB.querySelector("img").src = imgA;
 }
 
+// ===== 檢查並消除連線 =====
 function checkAndRemoveMatches() {
   let matched = [];
 
@@ -219,6 +250,7 @@ function checkAndRemoveMatches() {
   return true;
 }
 
+// ===== 圖案掉落 =====
 function dropImages() {
   for (let c = 0; c < gridSize; c++) {
     for (let r = gridSize - 1; r >= 0; r--) {
@@ -251,6 +283,7 @@ function dropImages() {
   }, 500);
 }
 
+// ===== 檢查是否有任何可消除 =====
 function hasAnyMatches() {
   for (let r = 0; r < gridSize; r++) {
     for (let c = 0; c < gridSize - 2; c++) {
@@ -273,22 +306,14 @@ function hasAnyMatches() {
   return false;
 }
 
-function shuffleGrid() {
-  for (let i = grid.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const temp = grid[i].querySelector("img").src;
-    grid[i].querySelector("img").src = grid[j].querySelector("img").src;
-    grid[j].querySelector("img").src = temp;
-  }
-  if (!hasAnyMatches()) shuffleGrid();
-}
-
+// ===== 遊戲結束 =====
 function endGame() {
   gameOver = true;
   gameOverDisplay.style.display = "block";
   endSound.play();
 }
 
+// ===== 開始遊戲 =====
 createGrid();
 </script>
 </body>
