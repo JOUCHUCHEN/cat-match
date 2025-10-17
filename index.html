@@ -121,9 +121,12 @@ function renderBoard() {
   }
 }
 
+// === 改良後的拖曳機制 ===
 let clone = null;
 let startRow, startCol;
 let offsetX, offsetY;
+let startX, startY;
+let dragging = false;
 
 function addDragEvents(cell) {
   cell.addEventListener("mousedown", dragStart);
@@ -136,17 +139,10 @@ function dragStart(e) {
   startRow = +target.dataset.row;
   startCol = +target.dataset.col;
 
-  clone = target.cloneNode(true);
-  clone.classList.add("dragging");
-  document.body.appendChild(clone);
-
-  const rect = target.getBoundingClientRect();
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const y = e.touches ? e.touches[0].clientY : e.clientY;
-  offsetX = x - rect.left;
-  offsetY = y - rect.top;
-  clone.style.left = (x - offsetX) + "px";
-  clone.style.top = (y - offsetY) + "px";
+  startX = x;
+  startY = y;
 
   document.addEventListener("mousemove", dragMove);
   document.addEventListener("mouseup", dragEnd);
@@ -155,27 +151,51 @@ function dragStart(e) {
 }
 
 function dragMove(e) {
-  if (!clone) return;
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const y = e.touches ? e.touches[0].clientY : e.clientY;
-  clone.style.left = (x - offsetX) + "px";
-  clone.style.top = (y - offsetY) + "px";
+  const dx = x - startX;
+  const dy = y - startY;
+
+  // 只有移動超過 5px 才算真的在拖曳
+  if (!dragging && Math.sqrt(dx*dx + dy*dy) > 5) {
+    dragging = true;
+    const cell = document.querySelector(`.cell[data-row="${startRow}"][data-col="${startCol}"]`);
+    const rect = cell.getBoundingClientRect();
+    offsetX = x - rect.left;
+    offsetY = y - rect.top;
+    clone = cell.cloneNode(true);
+    clone.classList.add("dragging");
+    clone.style.left = rect.left + "px";
+    clone.style.top = rect.top + "px";
+    document.body.appendChild(clone);
+  }
+
+  if (dragging && clone) {
+    clone.style.left = (x - offsetX) + "px";
+    clone.style.top = (y - offsetY) + "px";
+  }
 }
 
 function dragEnd(e) {
-  if (!clone) return;
+  if (!dragging) {
+    cleanupDrag();
+    return; // 沒有真正拖動，不做任何事
+  }
+
   const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
   const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
   const dropCell = document.elementFromPoint(x, y);
   if (!dropCell || !dropCell.classList.contains("cell")) {
     animateReturn(clone, startRow, startCol);
-    clone = null;
+    cleanupDrag();
     return;
   }
+
   const endRow = +dropCell.dataset.row;
   const endCol = +dropCell.dataset.col;
   const dr = Math.abs(endRow - startRow);
   const dc = Math.abs(endCol - startCol);
+
   if ((dr + dc) === 1) {
     swapCells(startRow, startCol, endRow, endCol);
     const matches = checkMatches();
@@ -188,6 +208,16 @@ function dragEnd(e) {
     }
   } else {
     animateReturn(clone, startRow, startCol);
+  }
+
+  cleanupDrag();
+}
+
+function cleanupDrag() {
+  dragging = false;
+  if (clone) {
+    clone.remove();
+    clone = null;
   }
   document.removeEventListener("mousemove", dragMove);
   document.removeEventListener("mouseup", dragEnd);
@@ -324,3 +354,4 @@ initBoard();
 
 </body>
 </html>
+
