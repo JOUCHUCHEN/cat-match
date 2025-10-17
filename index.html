@@ -2,34 +2,41 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚消消樂 8x8 自然滑落版v3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>喵嗚消消樂 8x8 自然滑落手機版</title>
 <style>
 body {
   text-align: center;
   background: #222;
   color: #fff;
   font-family: "微軟正黑體";
+  margin: 0;
+  overflow-x: hidden;
 }
+
 #game {
   display: grid;
-  grid-template-columns: repeat(8, 60px);
-  grid-template-rows: repeat(8, 60px);
-  gap: 5px;
+  grid-template-columns: repeat(8, 11vw);
+  grid-template-rows: repeat(8, 11vw);
+  gap: 1vw;
   justify-content: center;
-  margin-top: 20px;
+  margin: 4vw auto;
+  width: 92vw;
   touch-action: none;
   position: relative;
 }
+
 .cell {
-  width: 60px;
-  height: 60px;
+  width: 11vw;
+  height: 11vw;
   background-size: cover;
-  border-radius: 10px;
+  background-position: center;
+  border-radius: 2vw;
   cursor: grab;
   position: relative;
-  transition: transform 0.5s ease, background-image 0.5s ease;
+  transition: transform 0.35s ease, background-image 0.35s ease;
 }
+
 .dragging {
   opacity: 0.8;
   transform: scale(1.2);
@@ -37,27 +44,30 @@ body {
   position: fixed;
   pointer-events: none;
 }
+
 .score {
-  font-size: 22px;
-  margin-top: 10px;
+  font-size: 5vw;
+  margin-top: 2vw;
 }
+
 .plus-text {
   position: fixed;
-  font-size: 18px;
+  font-size: 4vw;
   color: #ffdd00;
   font-weight: bold;
   animation: floatUp 0.8s ease-out forwards;
   pointer-events: none;
 }
+
 @keyframes floatUp {
-  0% {opacity:1; transform:translateY(0);}
-  100% {opacity:0; transform:translateY(-40px);}
+  0% {opacity: 1; transform: translateY(0);}
+  100% {opacity: 0; transform: translateY(-6vw);}
 }
 </style>
 </head>
 <body>
 
-<h2>喵嗚消消樂 8x8 自然滑落版</h2>
+<h2 style="font-size:6vw;margin-top:3vw;">喵嗚消消樂 8x8</h2>
 <div class="score">喵嗚值：<span id="score">0</span></div>
 <div id="game"></div>
 
@@ -75,7 +85,7 @@ function randomIcon() {
   return icons[Math.floor(Math.random() * icons.length)];
 }
 
-// 初始化棋盤，保證開局無三連
+// 初始化棋盤 (保證無三連)
 function initBoard() {
   do {
     board = [];
@@ -100,8 +110,6 @@ function renderBoard() {
       cell.style.backgroundImage = `url("${board[r][c]}")`;
       cell.dataset.row = r;
       cell.dataset.col = c;
-      cell.dataset.icon = board[r][c];
-      cell.style.transform = "translateY(0)";
       addDragEvents(cell);
       game.appendChild(cell);
     }
@@ -113,10 +121,10 @@ let clone = null;
 let startRow, startCol;
 let offsetX, offsetY;
 
-// 拖曳事件
+// 手機與滑鼠通用拖曳
 function addDragEvents(cell) {
   cell.addEventListener("mousedown", dragStart);
-  cell.addEventListener("touchstart", dragStart);
+  cell.addEventListener("touchstart", dragStart, {passive: false});
 }
 
 function dragStart(e) {
@@ -137,9 +145,9 @@ function dragStart(e) {
   clone.style.left = (x - offsetX) + "px";
   clone.style.top = (y - offsetY) + "px";
 
-  document.addEventListener("mousemove", dragMove);
+  document.addEventListener("mousemove", dragMove, {passive: false});
   document.addEventListener("mouseup", dragEnd);
-  document.addEventListener("touchmove", dragMove);
+  document.addEventListener("touchmove", dragMove, {passive: false});
   document.addEventListener("touchend", dragEnd);
 }
 
@@ -191,48 +199,54 @@ function animateReturn(cloneEl, r, c) {
   const targetCell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if (!targetCell) { cloneEl.remove(); return; }
   const rect = targetCell.getBoundingClientRect();
-  cloneEl.style.transition = "all 0.3s ease";
+  cloneEl.style.transition = "all 0.35s ease";
   cloneEl.style.left = rect.left + "px";
   cloneEl.style.top = rect.top + "px";
-  setTimeout(() => cloneEl.remove(), 310);
+  setTimeout(() => cloneEl.remove(), 360);
 }
 
 // 交換格子
-function swapCells(r1,c1,r2,c2){
+function swapCells(r1, c1, r2, c2) {
   [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
   renderBoard();
 }
 
-// 檢查三個以上相同
+// 找出三連以上
 function checkMatches() {
   const matches = [];
-  for (let r=0;r<rows;r++){
+  for (let r = 0; r < rows; r++) {
     let count = 1;
-    for (let c=1;c<cols;c++){
-      if(board[r][c]===board[r][c-1]) count++;
-      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
+    for (let c = 1; c < cols; c++) {
+      if (board[r][c] === board[r][c-1]) count++;
+      else {
+        if (count >= 3) for (let k = c - count; k < c; k++) matches.push([r, k]);
+        count = 1;
+      }
     }
-    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
+    if (count >= 3) for (let k = cols - count; k < cols; k++) matches.push([r, k]);
   }
-  for (let c=0;c<cols;c++){
-    let count=1;
-    for(let r=1;r<rows;r++){
-      if(board[r][c]===board[r-1][c]) count++;
-      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
+  for (let c = 0; c < cols; c++) {
+    let count = 1;
+    for (let r = 1; r < rows; r++) {
+      if (board[r][c] === board[r-1][c]) count++;
+      else {
+        if (count >= 3) for (let k = r - count; k < r; k++) matches.push([k, c]);
+        count = 1;
+      }
     }
-    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
+    if (count >= 3) for (let k = rows - count; k < rows; k++) matches.push([k, c]);
   }
   return matches;
 }
 
 // 消除
-function clearMatches(matches){
+function clearMatches(matches) {
   const cleared = new Set();
-  matches.forEach(([r,c])=>{
-    const key = r+'-'+c;
-    if(!cleared.has(key)){
+  matches.forEach(([r, c]) => {
+    const key = r + "-" + c;
+    if (!cleared.has(key)) {
       board[r][c] = null;
-      showPlusEffect(r,c);
+      showPlusEffect(r, c);
       cleared.add(key);
     }
   });
@@ -240,31 +254,28 @@ function clearMatches(matches){
   scoreEl.textContent = score;
 }
 
-// 自然下落動畫
-function applyGravity(){
-  let moved = false;
-  for(let c=0;c<cols;c++){
-    for(let r=rows-1;r>=0;r--){
-      if(board[r][c]===null){
-        let upper = r-1;
-        while(upper>=0 && board[upper][c]===null) upper--;
-        if(upper>=0){
+// 下落
+function applyGravity() {
+  for (let c = 0; c < cols; c++) {
+    for (let r = rows - 1; r >= 0; r--) {
+      if (board[r][c] === null) {
+        let upper = r - 1;
+        while (upper >= 0 && board[upper][c] === null) upper--;
+        if (upper >= 0) {
           board[r][c] = board[upper][c];
           board[upper][c] = null;
-          moved = true;
         }
       }
     }
   }
   renderBoard();
-  return moved;
 }
 
-// 補新圖
-function refillBoard(){
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(board[r][c]===null){
+// 補圖
+function refillBoard() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] === null) {
         board[r][c] = randomIcon();
       }
     }
@@ -272,52 +283,59 @@ function refillBoard(){
   renderBoard();
 }
 
-// 消除處理
-function handleMatches(matches){
+// 消除流程
+function handleMatches(matches) {
   clearMatches(matches);
-  setTimeout(()=>{
-    let moved = applyGravity();
-    setTimeout(()=>{
+  setTimeout(() => {
+    applyGravity();
+    setTimeout(() => {
       refillBoard();
       const newMatches = checkMatches();
-      if(newMatches.length>0) handleMatches(newMatches);
-      else if(!hasPossibleMoves()) gameOver();
-    }, moved? 200:0);
-  },300);
+      if (newMatches.length > 0) handleMatches(newMatches);
+      else if (!hasPossibleMoves()) gameOver();
+    }, 350);
+  }, 350);
 }
 
-// 喵嗚值 +1 特效
-function showPlusEffect(r,c){
-  const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-  if(!cell) return;
-  const rect=cell.getBoundingClientRect();
-  const plus=document.createElement("div");
+// +1 動畫
+function showPlusEffect(r, c) {
+  const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+  if (!cell) return;
+  const rect = cell.getBoundingClientRect();
+  const plus = document.createElement("div");
   plus.classList.add("plus-text");
-  plus.textContent="+1";
-  plus.style.left=rect.left+"px";
-  plus.style.top=rect.top+"px";
+  plus.textContent = "+1";
+  plus.style.left = rect.left + "px";
+  plus.style.top = rect.top + "px";
   document.body.appendChild(plus);
-  setTimeout(()=>plus.remove(),800);
+  setTimeout(() => plus.remove(), 800);
 }
 
-// 判斷可否移動
-function hasPossibleMoves(){
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
-      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
+// 可移動判斷
+function hasPossibleMoves() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (r < rows - 1) {
+        swapSimple(r, c, r + 1, c);
+        if (checkMatches().length > 0) { swapSimple(r, c, r + 1, c); return true; }
+        swapSimple(r, c, r + 1, c);
+      }
+      if (c < cols - 1) {
+        swapSimple(r, c, r, c + 1);
+        if (checkMatches().length > 0) { swapSimple(r, c, r, c + 1); return true; }
+        swapSimple(r, c, r, c + 1);
+      }
     }
   }
   return false;
 }
 
-function swapCellsSimple(r1,c1,r2,c2){
-  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+function swapSimple(r1, c1, r2, c2) {
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
 }
 
-// 遊戲結束
-function gameOver(){
-  alert("遊戲結束！最終喵嗚值：" + score);
+function gameOver() {
+  alert("喵嗚值：" + score + "，遊戲結束！");
 }
 
 initBoard();
@@ -325,8 +343,3 @@ initBoard();
 
 </body>
 </html>
-
-
-
-
-
