@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚消消樂 8x8 無重影滑落版</title>
+<title>喵嗚消消樂 8x8 自然滑落版</title>
 <style>
 body {
   text-align: center;
@@ -57,7 +57,7 @@ body {
 </head>
 <body>
 
-<h2>喵嗚消消樂 8x8 無重影滑落版</h2>
+<h2>喵嗚消消樂 8x8 自然滑落版</h2>
 <div class="score">喵嗚值：<span id="score">0</span></div>
 <div id="game"></div>
 
@@ -99,6 +99,7 @@ function renderBoard() {
       cell.dataset.row = r;
       cell.dataset.col = c;
       cell.dataset.icon = board[r][c];
+      cell.style.transform = "translateY(0)";
       addDragEvents(cell);
       game.appendChild(cell);
     }
@@ -232,71 +233,47 @@ function clearMatches(matches){
   scoreEl.textContent = score;
 }
 
-// 使用 transform 滑落動畫
+// 自然滑落動畫
 function applyGravity(){
-  const cells = document.querySelectorAll(".cell");
-  let moved = false;
-
   for(let c=0;c<cols;c++){
     let empty = 0;
     for(let r=rows-1;r>=0;r--){
+      const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
       if(!board[r][c]){
         empty++;
       } else if(empty>0){
         board[r+empty][c] = board[r][c];
         board[r][c] = null;
-
-        const cell = Array.from(cells).find(el => +el.dataset.row===r && +el.dataset.col===c);
         if(cell){
           cell.style.transition = "transform 0.3s ease";
           cell.style.transform = `translateY(${empty*65}px)`;
-          moved = true;
         }
       }
     }
   }
-
-  if(moved){
-    setTimeout(()=>{
-      renderBoard();
-    }, 320);
-  } else {
-    renderBoard();
-  }
+  setTimeout(()=>renderBoard(), 320);
 }
 
 function refillBoard(){
-  let cells = document.querySelectorAll(".cell");
-  let moved = false;
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
       if(!board[r][c]){
-        const icon = randomIcon();
-        board[r][c] = icon;
-        const cell = Array.from(cells).find(el => +el.dataset.row===r && +el.dataset.col===c);
-        if(cell){
-          cell.style.transition = "transform 0.3s ease";
-          cell.style.transform = `translateY(-65px)`;
-          moved = true;
-        }
+        board[r][c] = randomIcon();
       }
     }
   }
-  if(moved){
-    setTimeout(()=>renderBoard(), 320);
-  } else {
-    renderBoard();
-  }
+  renderBoard();
 }
 
 function handleMatches(matches){
   clearMatches(matches);
   setTimeout(()=>{
     applyGravity();
-    refillBoard();
-    const newMatches=checkMatches();
-    if(newMatches.length>0) handleMatches(newMatches);
-    else if(!hasPossibleMoves()) gameOver();
+    setTimeout(()=>{ refillBoard(); 
+      const newMatches = checkMatches();
+      if(newMatches.length>0) handleMatches(newMatches);
+      else if(!hasPossibleMoves()) gameOver();
+    }, 320);
   },300);
 }
 
