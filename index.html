@@ -30,14 +30,15 @@
     border-radius: 12px;
     background-color: #fff;
     box-shadow: 0 0 6px rgba(0,0,0,0.2);
-    transition: transform 0.25s, top 0.25s;
     position: relative;
+    overflow: hidden;
   }
   .cell img {
     width: 65px;
     height: 65px;
     pointer-events: none;
-    transition: transform 0.25s ease;
+    transition: transform 0.3s ease;
+    position: relative;
   }
   .match {
     animation: pop 0.4s ease;
@@ -61,14 +62,14 @@
 </style>
 </head>
 <body>
-  <h1>🐾 貓咪消消樂 🐾</h1>
-  <div id="game"></div>
-  <div id="score">分數：0</div>
-  <div id="gameOver">🎮 遊戲結束！</div>
+<h1>🐾 貓咪消消樂 🐾</h1>
+<div id="game"></div>
+<div id="score">分數：0</div>
+<div id="gameOver">🎮 遊戲結束！</div>
 
-  <!-- 音效 -->
-  <audio id="matchSound" src="match.mp3"></audio>
-  <audio id="endSound" src="end.mp3"></audio>
+<!-- 音效 -->
+<audio id="matchSound" src="match.mp3"></audio>
+<audio id="endSound" src="end.mp3"></audio>
 
 <script>
 const gridSize = 6;
@@ -78,6 +79,7 @@ let score = 0;
 let dragging = null;
 let draggingElement = null;
 let gameOver = false;
+
 const game = document.getElementById("game");
 const scoreDisplay = document.getElementById("score");
 const gameOverDisplay = document.getElementById("gameOver");
@@ -109,17 +111,14 @@ function createGrid() {
 function createsMatch(index, src) {
   const r = Math.floor(index / gridSize);
   const c = index % gridSize;
-
-  // 橫向
   if (c >= 2) {
     const left1 = grid[index - 1]?.querySelector("img").src;
     const left2 = grid[index - 2]?.querySelector("img").src;
     if (left1 === src && left2 === src) return true;
   }
-  // 直向
   if (r >= 2) {
     const up1 = grid[index - gridSize]?.querySelector("img").src;
-    const up2 = grid[index - gridSize * 2]?.querySelector("img").src;
+    const up2 = grid[index - gridSize*2]?.querySelector("img").src;
     if (up1 === src && up2 === src) return true;
   }
   return false;
@@ -164,27 +163,30 @@ function moveDrag(e) {
   draggingElement.style.top = y - 32 + "px";
 }
 
+function areAdjacent(cellA, cellB) {
+  const i = parseInt(cellA.dataset.index);
+  const j = parseInt(cellB.dataset.index);
+  const r1 = Math.floor(i / gridSize), c1 = i % gridSize;
+  const r2 = Math.floor(j / gridSize), c2 = j % gridSize;
+  return (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
+}
+
 function endDrag(e) {
   if (!dragging) return;
   dragging.classList.remove("dragging");
-
-  if (draggingElement) {
-    draggingElement.remove();
-    draggingElement = null;
-  }
+  if (draggingElement) { draggingElement.remove(); draggingElement = null; }
 
   let target = document.elementFromPoint(
     e.changedTouches ? e.changedTouches[0].clientX : e.clientX,
     e.changedTouches ? e.changedTouches[0].clientY : e.clientY
   );
 
-  if (target && target.classList.contains("cell") && target !== dragging) {
-    const source = dragging; // 保存原位
+  if (target && target.classList.contains("cell") && target !== dragging && areAdjacent(dragging, target)) {
+    const source = dragging;
     swapCells(source, target);
     if (checkAndRemoveMatches()) {
-      setTimeout(() => dropImages(), 500);
+      setTimeout(dropImages, 300);
     } else {
-      // 無法消除 → 換回原位
       setTimeout(() => swapCells(source, target), 200);
     }
   }
@@ -203,104 +205,95 @@ function swapCells(cellA, cellB) {
 // ===== 檢查並消除連線 =====
 function checkAndRemoveMatches() {
   let matched = [];
-
-  // 橫向
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize - 2; c++) {
-      const i = r * gridSize + c;
+  for (let r=0; r<gridSize; r++) {
+    for (let c=0; c<gridSize-2; c++) {
+      const i = r*gridSize + c;
       const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i + 1].querySelector("img").src;
-      const src3 = grid[i + 2].querySelector("img").src;
-      if (src1 === src2 && src2 === src3) {
-        matched.push(i, i + 1, i + 2);
-      }
+      const src2 = grid[i+1].querySelector("img").src;
+      const src3 = grid[i+2].querySelector("img").src;
+      if (src1===src2 && src2===src3) matched.push(i,i+1,i+2);
     }
   }
-
-  // 直向
-  for (let c = 0; c < gridSize; c++) {
-    for (let r = 0; r < gridSize - 2; r++) {
-      const i = r * gridSize + c;
+  for (let c=0; c<gridSize; c++) {
+    for (let r=0; r<gridSize-2; r++) {
+      const i = r*gridSize + c;
       const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i + gridSize].querySelector("img").src;
-      const src3 = grid[i + gridSize * 2].querySelector("img").src;
-      if (src1 === src2 && src2 === src3) {
-        matched.push(i, i + gridSize, i + gridSize * 2);
-      }
+      const src2 = grid[i+gridSize].querySelector("img").src;
+      const src3 = grid[i+gridSize*2].querySelector("img").src;
+      if (src1===src2 && src2===src3) matched.push(i,i+gridSize,i+gridSize*2);
     }
   }
-
   matched = [...new Set(matched)];
-  if (matched.length === 0) return false;
+  if (matched.length===0) return false;
 
   matchSound.currentTime = 0;
   matchSound.play();
 
-  score += matched.length * 10;
+  score += matched.length*10;
   scoreDisplay.textContent = "分數：" + score;
 
-  matched.forEach(i => {
+  matched.forEach(i=>{
     const img = grid[i].querySelector("img");
     img.classList.add("match");
-    setTimeout(() => {
-      img.src = "";
-      img.classList.remove("match");
-    }, 400);
+    setTimeout(()=>{ img.src=""; img.classList.remove("match"); }, 300);
   });
+
   return true;
 }
 
-// ===== 圖案掉落 =====
+// ===== 圖片掉落 & 補圖 =====
 function dropImages() {
-  for (let c = 0; c < gridSize; c++) {
-    for (let r = gridSize - 1; r >= 0; r--) {
-      const i = r * gridSize + c;
-      if (grid[i].querySelector("img").src === "") {
-        for (let k = r - 1; k >= 0; k--) {
-          const above = grid[k * gridSize + c].querySelector("img");
-          if (above.src !== "") {
-            grid[i].querySelector("img").src = above.src;
-            above.src = "";
-            grid[i].style.transform = "translateY(-70px)";
-            setTimeout(() => grid[i].style.transform = "translateY(0)", 200);
+  let moved = false;
+  for (let c=0; c<gridSize; c++) {
+    for (let r=gridSize-1; r>=0; r--) {
+      const i = r*gridSize + c;
+      const cell = grid[i];
+      const img = cell.querySelector("img");
+      if (img.src==="") {
+        for (let k=r-1; k>=0; k--) {
+          const aboveImg = grid[k*gridSize+c].querySelector("img");
+          if (aboveImg.src!=="") {
+            img.src = aboveImg.src;
+            aboveImg.src = "";
+            moved = true;
             break;
           }
         }
-        if (grid[i].querySelector("img").src === "") {
-          grid[i].querySelector("img").src = images[Math.floor(Math.random() * images.length)];
-          grid[i].style.transform = "translateY(-70px)";
-          setTimeout(() => grid[i].style.transform = "translateY(0)", 200);
+        if (img.src==="") {
+          img.src = images[Math.floor(Math.random()*images.length)];
+          moved = true;
         }
       }
     }
   }
-  setTimeout(() => {
-    if (checkAndRemoveMatches()) {
-      setTimeout(() => dropImages(), 400);
-    } else if (!hasAnyMatches()) {
-      endGame();
-    }
-  }, 500);
+  if (moved) {
+    setTimeout(()=>{
+      if (checkAndRemoveMatches()) setTimeout(dropImages, 300);
+      else if (!hasAnyMatches()) endGame();
+    }, 300);
+  } else {
+    if (!hasAnyMatches()) endGame();
+  }
 }
 
-// ===== 檢查是否有任何可消除 =====
+// ===== 是否有可消除 =====
 function hasAnyMatches() {
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize - 2; c++) {
-      const i = r * gridSize + c;
+  for (let r=0; r<gridSize; r++) {
+    for (let c=0; c<gridSize-2; c++) {
+      const i = r*gridSize + c;
       const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i + 1].querySelector("img").src;
-      const src3 = grid[i + 2].querySelector("img").src;
-      if (src1 === src2 && src2 === src3) return true;
+      const src2 = grid[i+1].querySelector("img").src;
+      const src3 = grid[i+2].querySelector("img").src;
+      if (src1===src2 && src2===src3) return true;
     }
   }
-  for (let c = 0; c < gridSize; c++) {
-    for (let r = 0; r < gridSize - 2; r++) {
-      const i = r * gridSize + c;
+  for (let c=0; c<gridSize; c++) {
+    for (let r=0; r<gridSize-2; r++) {
+      const i = r*gridSize + c;
       const src1 = grid[i].querySelector("img").src;
-      const src2 = grid[i + gridSize].querySelector("img").src;
-      const src3 = grid[i + gridSize * 2].querySelector("img").src;
-      if (src1 === src2 && src2 === src3) return true;
+      const src2 = grid[i+gridSize].querySelector("img").src;
+      const src3 = grid[i+gridSize*2].querySelector("img").src;
+      if (src1===src2 && src2===src3) return true;
     }
   }
   return false;
