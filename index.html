@@ -37,12 +37,11 @@
     height: 60px;
     background-size: cover;
     border-radius: 10px;
-    transition: transform 0.3s;
+    transition: transform 0.3s, opacity 0.3s;
   }
 
   .highlight {
     transform: scale(1.1);
-    z-index: 10;
   }
 
   #gameOver {
@@ -51,6 +50,17 @@
     display: none;
     margin-top: 20px;
   }
+
+  #restart {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: #4CAF50;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    font-size: 1em;
+  }
 </style>
 </head>
 <body>
@@ -58,31 +68,33 @@
   <div id="score">抗妖值：0</div>
   <div id="board"></div>
   <div id="gameOver">👾 遊戲結束！</div>
+  <button id="restart">重新開始</button>
 
 <script>
-const rows = 6, cols = 6;
-const types = 6;
+const rows = 6, cols = 6, types = 6;
 let board = [];
 let score = 0;
-let isSwapping = false;
 let dragStart = null;
-let dragEnd = null;
 
 const boardEl = document.getElementById("board");
 const scoreEl = document.getElementById("score");
 const gameOverEl = document.getElementById("gameOver");
+const restartBtn = document.getElementById("restart");
 
-function randomType() { return Math.floor(Math.random() * types) + 1; }
+function randomType() {
+  return Math.floor(Math.random() * types) + 1;
+}
 
 function initBoard() {
-  board = [];
-  for (let r = 0; r < rows; r++) {
-    const row = [];
-    for (let c = 0; c < cols; c++) row.push(randomType());
-    board.push(row);
-  }
+  do {
+    board = Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => randomType())
+    );
+  } while (checkMatches().length > 0); // 重洗直到沒有初始三連
+
+  score = 0;
+  scoreEl.textContent = `抗妖值：${score}`;
   renderBoard();
-  removeMatches();
 }
 
 function renderBoard() {
@@ -91,7 +103,17 @@ function renderBoard() {
     for (let c = 0; c < cols; c++) {
       const div = document.createElement("div");
       div.classList.add("cell");
-      div.style.backgroundImage = `url(${board[r][c]}.png)`;
+
+      // 支援大小寫副檔名（PNG 或 png）
+      const imgName = board[r][c];
+      const srcLower = `${imgName}.png`;
+      const srcUpper = `${imgName}.PNG`;
+
+      const img = new Image();
+      img.src = srcLower;
+      img.onerror = () => { div.style.backgroundImage = `url(${srcUpper})`; };
+      img.onload = () => { div.style.backgroundImage = `url(${srcLower})`; };
+
       div.dataset.row = r;
       div.dataset.col = c;
       boardEl.appendChild(div);
@@ -105,14 +127,14 @@ function swap(r1, c1, r2, c2) {
 
 function checkMatches() {
   let matched = [];
-  // 檢查橫向
+  // 橫向
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols - 2; c++) {
-      let t = board[r][c];
+      const t = board[r][c];
       if (t && t === board[r][c+1] && t === board[r][c+2]) {
         let temp = [[r,c],[r,c+1],[r,c+2]];
         let cc = c+3;
-        while(cc < cols && board[r][cc] === t){
+        while (cc < cols && board[r][cc] === t) {
           temp.push([r,cc]);
           cc++;
         }
@@ -121,14 +143,14 @@ function checkMatches() {
       }
     }
   }
-  // 檢查縱向
+  // 縱向
   for (let c = 0; c < cols; c++) {
     for (let r = 0; r < rows - 2; r++) {
-      let t = board[r][c];
+      const t = board[r][c];
       if (t && t === board[r+1][c] && t === board[r+2][c]) {
         let temp = [[r,c],[r+1,c],[r+2,c]];
         let rr = r+3;
-        while(rr < rows && board[rr][c] === t){
+        while (rr < rows && board[rr][c] === t) {
           temp.push([rr,c]);
           rr++;
         }
@@ -145,9 +167,11 @@ function removeMatches() {
   if (matches.length === 0) {
     if (!canMove()) {
       gameOverEl.style.display = "block";
+      restartBtn.style.display = "inline-block";
     }
     return;
   }
+
   let cells = document.querySelectorAll(".cell");
   matches.forEach(([r, c]) => {
     const idx = r * cols + c;
@@ -158,6 +182,7 @@ function removeMatches() {
     }
     board[r][c] = null;
   });
+
   score += matches.length;
   scoreEl.textContent = `抗妖值：${score}`;
   setTimeout(dropAndFill, 400);
@@ -215,11 +240,7 @@ boardEl.addEventListener("touchend", endDrag);
 function startDrag(e) {
   const cell = getCell(e);
   if (!cell) return;
-  dragStart = { 
-    row: +cell.dataset.row, 
-    col: +cell.dataset.col,
-    element: cell
-  };
+  dragStart = { row: +cell.dataset.row, col: +cell.dataset.col };
   cell.classList.add("highlight");
 }
 
@@ -227,13 +248,13 @@ function endDrag(e) {
   if (!dragStart) return;
   const start = dragStart;
   const endCell = getCell(e);
-  start.element.classList.remove("highlight");
+  document.querySelectorAll(".cell").forEach(c => c.classList.remove("highlight"));
   if (!endCell) { dragStart = null; return; }
 
   const end = { row: +endCell.dataset.row, col: +endCell.dataset.col };
-
   const dr = end.row - start.row;
   const dc = end.col - start.col;
+
   if (Math.abs(dr) + Math.abs(dc) !== 1) { dragStart = null; return; }
 
   swap(start.row, start.col, end.row, end.col);
@@ -241,7 +262,7 @@ function endDrag(e) {
 
   setTimeout(() => {
     if (checkMatches().length === 0) {
-      swap(start.row, start.col, end.row, end.col); // 無配對 → 還原
+      swap(start.row, start.col, end.row, end.col);
       renderBoard();
     } else {
       removeMatches();
@@ -250,6 +271,12 @@ function endDrag(e) {
 
   dragStart = null;
 }
+
+restartBtn.addEventListener("click", () => {
+  gameOverEl.style.display = "none";
+  restartBtn.style.display = "none";
+  initBoard();
+});
 
 initBoard();
 </script>
