@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚值消消樂v11</title>
+<title>喵嗚值消消樂v12</title>
 <style>
   body {
     display: flex;
@@ -214,24 +214,23 @@ function clearMatches(matches){
 // ✅ 改良後：同步補充與滑落動畫
 function applyGravity(){
   let moved = false;
-  const cellsToMove = [];
-
   for(let c=0;c<cols;c++){
-    let emptySpots = 0;
     for(let r=rows-1;r>=0;r--){
       if(board[r][c]===null){
-        emptySpots++;
-      } else if(emptySpots>0){
-        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-        if(cell){
-          const dy = emptySpots * cell.offsetHeight;
-          cellsToMove.push({cell, dy});
+        let upper = r-1;
+        while(upper>=0 && board[upper][c]===null) upper--;
+        if(upper>=0){
+          board[r][c] = board[upper][c];
+          board[upper][c] = null;
+          moved = true;
         }
-        board[r+emptySpots][c] = board[r][c];
-        board[r][c] = null;
-        moved = true;
       }
     }
+  }
+  renderBoard();
+  return moved;
+}
+
 
     // 補充新圖案並同步下落
     for(let i=0;i<emptySpots;i++){
@@ -301,3 +300,4 @@ initBoard();
 
 </body>
 </html>
+
