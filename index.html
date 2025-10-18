@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚值消消樂（修正下落）</title>
+<title>喵嗚值消消樂（修正版）</title>
 <style>
   body {
     display: flex;
@@ -126,6 +126,7 @@ function endDrag(e){
   }
 }
 
+/* ✅ 修正版：加入若無配對則滑回的功能 */
 function swapCellsAnimated(r1,c1,r2,c2){
   const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
   const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
@@ -133,20 +134,39 @@ function swapCellsAnimated(r1,c1,r2,c2){
   board[r1][c1] = board[r2][c2];
   board[r2][c2] = temp;
 
-  cell1.style.transition = "transform 0.3s";
-  cell2.style.transition = "transform 0.3s";
   const dx = (c2-c1)*69;
   const dy = (r2-r1)*69;
+
+  cell1.style.transition = "transform 0.3s";
+  cell2.style.transition = "transform 0.3s";
   cell1.style.transform = `translate(${dx}px,${dy}px)`;
   cell2.style.transform = `translate(${-dx}px,${-dy}px)`;
 
   setTimeout(()=>{
-    cell1.style.transition = "";
-    cell2.style.transition = "";
-    cell1.style.transform = "";
-    cell2.style.transform = "";
-    renderBoard();
-    handleMatches();
+    const matches = checkMatches();
+    if(matches.length>0){
+      cell1.style.transition = "";
+      cell2.style.transition = "";
+      cell1.style.transform = "";
+      cell2.style.transform = "";
+      renderBoard();
+      handleMatches();
+    } else {
+      // ❌ 無配對 → 滑回原位
+      const back1 = cell1.cloneNode(true);
+      const back2 = cell2.cloneNode(true);
+      cell1.replaceWith(back1);
+      cell2.replaceWith(back2);
+      addEvent(back1);
+      addEvent(back2);
+      board[r2][c2] = board[r1][c1];
+      board[r1][c1] = temp;
+      back1.style.transition = "transform 0.3s";
+      back2.style.transition = "transform 0.3s";
+      back1.style.transform = "";
+      back2.style.transform = "";
+      setTimeout(()=>renderBoard(),300);
+    }
   },300);
 }
 
@@ -212,159 +232,77 @@ function clearMatches(matches){
   });
 }
 
-// ===== 修正版 applyGravity()：確保所有應下落的舊格 + 新補格 同步滑落，且不會影響下方不該移動的格子 =====
+/* ✅ 修正版 applyGravity()：讓上方新圖案隨機高度滑落 */
 function applyGravity(){
-  let moved = false;
-  const boardDiv = document.getElementById("board");
-  const cellPrototype = document.querySelector('.cell');
-  const cellH = cellPrototype ? cellPrototype.offsetHeight : 65; // fallback
-  const gap = 4; // grid gap in px (as per CSS)
-  const cellsToAnimate = []; // {element, startTop, endTop}
+  const clones = [];
+  const cellSize = 69;
+  const gap = 4;
+  const boardEl = document.getElementById("board");
+  const rect = boardEl.getBoundingClientRect();
 
-  // 1) 計算每一列空格數與要下移的來源格，先更新 board（但不改 DOM）
   for(let c=0;c<cols;c++){
-    let emptySpots = 0;
+    let empty = 0;
     for(let r=rows-1;r>=0;r--){
       if(board[r][c]===null){
-        emptySpots++;
-      } else if(emptySpots>0){
-        // 移動邏輯：值搬到下面
-        board[r+emptySpots][c] = board[r][c];
+        empty++;
+      } else if(empty>0){
+        board[r+empty][c] = board[r][c];
         board[r][c] = null;
-        moved = true;
       }
     }
-    // 最上方空位數量 emptySpots 表示需要補入的數量
-    // 將新圖填入 board 的最上方位置（board[0..emptySpots-1][c]）
-    for(let i=0;i<emptySpots;i++){
+    for(let i=0;i<empty;i++){
       board[i][c] = randomIcon();
-    }
-  }
-
-  // 2) 建立動畫：對「畫面上現有的 DOM cell」計算從哪裡到哪裡（使用當前 DOM 布局）
-  // 我們先 snapshot 現有 DOM cell rects（在 renderBoard 之後存在）
-  const domCells = Array.from(document.querySelectorAll('.cell'));
-  // build map by row/col -> element & rect
-  const rectMap = {};
-  domCells.forEach(el=>{
-    const r = +el.dataset.row;
-    const c = +el.dataset.col;
-    rectMap[`${r}-${c}`] = el.getBoundingClientRect();
-  });
-
-  // For each original DOM cell that had a non-null value BEFORE gravity, find its new row
-  // But we already modified board; we need to determine for each original position (r,c) where its value moved.
-  // We'll iterate original positions from top to bottom and compute how many empty spots below it existed originally.
-  // To get original empties we can recompute from a copy of board BEFORE we modified it.
-  // So produce a snapshot of boardBefore from DOM backgroundImages.
-
-  // Build boardBefore by reading current DOM background images (safe because renderBoard created them)
-  const boardBefore = [];
-  for(let r=0;r<rows;r++){
-    boardBefore[r] = [];
-    for(let c=0;c<cols;c++){
-      const el = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-      const bg = el ? el.style.backgroundImage : "";
-      // extract filename from url("...") or leave null if none
-      if(bg && bg !== "none") {
-        // bg is like url("1.png") or url(1.png)
-        const m = bg.match(/url\(["']?(.*?)["']?\)/);
-        boardBefore[r][c] = m ? m[1] : bg;
-      } else {
-        boardBefore[r][c] = null;
-      }
-    }
-  }
-
-  // Now calculate movements for original cells that existed (boardBefore has their icons)
-  for(let c=0;c<cols;c++){
-    let emptyBelow = 0;
-    for(let r=rows-1;r>=0;r--){
-      if(boardBefore[r][c]===null){
-        emptyBelow++;
-      } else {
-        if(emptyBelow>0){
-          const sourceEl = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-          const targetRow = r + emptyBelow;
-          const targetEl = document.querySelector(`.cell[data-row="${targetRow}"][data-col="${c}"]`);
-          if(sourceEl && targetEl){
-            const srcRect = sourceEl.getBoundingClientRect();
-            const tgtRect = targetEl.getBoundingClientRect();
-            // compute translate distance
-            const dy = tgtRect.top - srcRect.top;
-            cellsToAnimate.push({el: sourceEl, dy});
-          }
-        }
-      }
-    }
-  }
-
-  // 3) 新補的格子：建立 fixed clone 元素在畫面上方並動畫到目標位置（不影響 grid flow）
-  const clones = [];
-  for(let c=0;c<cols;c++){
-    // Count how many empty slots were originally in this column (boardBefore)
-    let emptySpots = 0;
-    for(let r=rows-1;r>=0;r--){
-      if(boardBefore[r][c]===null) emptySpots++;
-    }
-    if(emptySpots<=0) continue;
-    // For i from 0..emptySpots-1 (topmost new positions), target is row i
-    for(let i=0;i<emptySpots;i++){
-      const targetRow = i;
-      const targetEl = document.querySelector(`.cell[data-row="${targetRow}"][data-col="${c}"]`);
-      if(!targetEl) continue;
-      const tgtRect = targetEl.getBoundingClientRect();
-      // start position: above by emptySpots * (cellH + gap)
-      const startTop = tgtRect.top - (emptySpots * (cellH + gap));
-      const left = tgtRect.left;
-      const clone = document.createElement('div');
-      clone.className = 'cell';
-      clone.style.position = 'fixed';
-      clone.style.left = left + 'px';
-      clone.style.top = startTop + 'px';
-      clone.style.width = tgtRect.width + 'px';
-      clone.style.height = tgtRect.height + 'px';
-      clone.style.backgroundImage = `url(${board[targetRow][c]})`;
+      // 隨機滑落
+      const targetY = rect.top + i*(cellSize+gap);
+      const startY = rect.top - ((Math.random()*3+1)*(cellSize+gap)*empty);
+      const x = rect.left + c*(cellSize+gap);
+      const clone = document.createElement("div");
+      clone.className = "cell";
+      clone.style.position = "fixed";
+      clone.style.left = x + "px";
+      clone.style.top = startY + "px";
+      clone.style.width = "65px";
+      clone.style.height = "65px";
+      clone.style.backgroundImage = `url(${board[i][c]})`;
       clone.style.zIndex = 999;
       clone.style.transition = "transform 0.5s ease";
-      // set initial transform to 0, but we'll animate by translate to (tgtRect.top - startTop)
-      const dy = (tgtRect.top - startTop);
+      const dy = targetY - startY;
       document.body.appendChild(clone);
-      // use translate for animation
-      clone.style.transform = `translateY(${dy}px)`;
+      requestAnimationFrame(()=>{
+        clone.style.transform = `translateY(${dy}px)`;
+      });
       clones.push(clone);
     }
   }
 
-  // 4) animate original cells (use translate based on dy)
-  cellsToAnimate.forEach(item=>{
-    item.el.style.transition = "transform 0.5s ease";
-    item.el.style.transform = `translateY(${item.dy}px)`;
+  // 原本存在的圖案下滑
+  const domCells = document.querySelectorAll('.cell');
+  domCells.forEach(el=>{
+    const r = +el.dataset.row;
+    const c = +el.dataset.col;
+    if(!board[r][c]) return;
+    let fall = 0;
+    for(let k=r+1;k<rows;k++){
+      if(board[k][c]===null) fall++;
+    }
+    if(fall>0){
+      el.style.transition = "transform 0.5s ease";
+      el.style.transform = `translateY(${fall*(cellSize+gap)}px)`;
+    }
   });
 
-  // 5) after animation, cleanup clones and reset transforms, then renderBoard()
   setTimeout(()=>{
-    clones.forEach(cl=>{
-      cl.remove();
-    });
-    cellsToAnimate.forEach(item=>{
-      item.el.style.transition = "";
-      item.el.style.transform = "";
-    });
+    clones.forEach(cl=>cl.remove());
     renderBoard();
-    // after re-render, continue the chain (check new matches)
     const newMatches = checkMatches();
     if(newMatches.length>0){
-      // small delay to show new matches being cleared
-      setTimeout(()=>{ clearMatches(newMatches); setTimeout(()=>applyGravity(),300); },100);
+      clearMatches(newMatches);
+      setTimeout(()=>applyGravity(),300);
     } else if(!hasPossibleMove()){
       gameOver();
     }
-  }, 500);
-
-  return moved;
+  },500);
 }
-// ===== end applyGravity() 修正版 =====
 
 function hasPossibleMove(){
   for(let r=0;r<rows;r++){
@@ -392,7 +330,6 @@ function gameOver(){
   alert("遊戲結束！最終喵嗚值：" + score);
 }
 
-// start
 initBoard();
 </script>
 
