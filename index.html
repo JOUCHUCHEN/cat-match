@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚值消消樂（修正下落）v1</title>
+<title>喵嗚值消消樂 v2</title>
 <style>
   body {
     display: flex;
@@ -21,13 +21,14 @@
     grid-template-columns: repeat(8, 65px);
     grid-template-rows: repeat(8, 65px);
     gap: 4px;
+    overflow: hidden; /* ✅ 防止新圖在框外可見 */
   }
   .cell {
     width: 65px;
     height: 65px;
     background-size: cover;
     border-radius: 10px;
-    transition: transform 0.5s ease, background-image 0.3s ease;
+    transition: transform 0.5s ease, background-image 0.3s ease, opacity 0.2s ease;
   }
   #score {
     font-size: 24px;
@@ -86,8 +87,7 @@ function renderBoard(){
       cell.className = "cell";
       cell.dataset.row = r;
       cell.dataset.col = c;
-      if(board[r][c]) cell.style.backgroundImage = `url(${board[r][c]})`;
-      else cell.style.backgroundImage = "none";
+      cell.style.backgroundImage = `url(${board[r][c]})`;
       addEvent(cell);
       boardDiv.appendChild(cell);
     }
@@ -212,175 +212,66 @@ function clearMatches(matches){
   });
 }
 
-// ===== 修正版 applyGravity()：同步滑落（保留其他程式碼不變） =====
+// ✅ 修正版：新補圖在格內才出現
 function applyGravity(){
-  // 目標：讓所有「原本應下落的格子」與「新補的格子」同步滑落（一起 0.5s）
-  // 實作步驟：
-  // 1) snapshot boardBefore（由當前 DOM 讀出）
-  // 2) 計算每列 emptySpots（以 boardBefore 計算），為每列產生 newIcons 陣列
-  // 3) 為每個原有要下滑的格子計算 dy，並收集要動畫的 element
-  // 4) 為每個新圖建立 fixed clone（在畫面外上方），加入動畫隊列
-  // 5) 同步觸發動畫（0.5s），結束後把 board 更新為 newBoard，renderBoard()
+  let moved = false;
+  const cellsToMove = [];
 
-  // 1) snapshot boardBefore from DOM
-  const boardBefore = [];
-  const domCells = Array.from(document.querySelectorAll('.cell'));
-  for(let r=0;r<rows;r++){
-    boardBefore[r] = [];
-    for(let c=0;c<cols;c++){
-      const el = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-      const bg = el ? el.style.backgroundImage : "";
-      if(bg && bg !== "none") {
-        const m = bg.match(/url\(["']?(.*?)["']?\)/);
-        boardBefore[r][c] = m ? m[1] : bg;
-      } else {
-        boardBefore[r][c] = null;
-      }
-    }
-  }
-
-  // cell size and gap (read from DOM to be robust)
-  const sample = document.querySelector('.cell');
-  const cellH = sample ? sample.getBoundingClientRect().height : 65;
-  const cellW = sample ? sample.getBoundingClientRect().width : 65;
-  // read gap from computed style of grid (approximation)
-  let gap = 4;
-  const boardDiv = document.getElementById("board");
-  const cs = window.getComputedStyle(boardDiv);
-  if(cs && cs.getPropertyValue("gap")) {
-    gap = parseFloat(cs.getPropertyValue("gap")) || gap;
-  }
-
-  // 2) compute emptySpots and newIcons for each column
-  const newIconsByCol = Array.from({length: cols}, () => []);
-  const emptyCountByCol = Array(cols).fill(0);
   for(let c=0;c<cols;c++){
-    let empty = 0;
+    let emptySpots = 0;
     for(let r=rows-1;r>=0;r--){
-      if(boardBefore[r][c] === null) empty++;
-    }
-    emptyCountByCol[c] = empty;
-    for(let i=0;i<empty;i++){
-      newIconsByCol[c].push(randomIcon());
-    }
-  }
-
-  // 3) compute movements for existing cells (collect elements and dy)
-  const moves = []; // {el, dy}
-  for(let c=0;c<cols;c++){
-    let emptyBelow = 0;
-    for(let r=rows-1;r>=0;r--){
-      if(boardBefore[r][c] === null){
-        emptyBelow++;
-      } else {
-        if(emptyBelow>0){
-          const srcEl = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-          const tgtRow = r + emptyBelow;
-          const tgtEl = document.querySelector(`.cell[data-row="${tgtRow}"][data-col="${c}"]`);
-          if(srcEl && tgtEl){
-            const srcRect = srcEl.getBoundingClientRect();
-            const tgtRect = tgtEl.getBoundingClientRect();
-            const dy = tgtRect.top - srcRect.top;
-            moves.push({el: srcEl, dy});
-          } else if(srcEl){
-            // if target element missing (edge cases), still move by emptyBelow * (cellH+gap)
-            const dy = emptyBelow * (cellH + gap);
-            moves.push({el: srcEl, dy});
-          }
+      if(board[r][c]===null){
+        emptySpots++;
+      } else if(emptySpots>0){
+        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        if(cell){
+          const dy = emptySpots * cell.offsetHeight;
+          cellsToMove.push({cell, dy});
         }
+        board[r+emptySpots][c] = board[r][c];
+        board[r][c] = null;
+        moved = true;
       }
     }
-  }
 
-  // 4) create clones for new icons, positioned above and animate down to their target slots
-  const clones = [];
-  for(let c=0;c<cols;c++){
-    const empty = emptyCountByCol[c];
-    if(empty<=0) continue;
-    // For target rows 0..empty-1, we will create clones that start above and go to their positions
-    for(let i=0;i<empty;i++){
-      const targetRow = i; // after gravity, top rows will be filled with newIcons in order
-      const targetEl = document.querySelector(`.cell[data-row="${targetRow}"][data-col="${c}"]`);
-      if(!targetEl) continue;
-      const tgtRect = targetEl.getBoundingClientRect();
-      // starting position: above by empty * (cellH+gap)
-      const startTop = tgtRect.top - (empty * (cellH + gap));
-      const left = tgtRect.left;
-      const clone = document.createElement('div');
-      clone.className = 'cell';
-      clone.style.position = 'fixed';
-      clone.style.left = left + 'px';
-      clone.style.top = startTop + 'px';
-      clone.style.width = tgtRect.width + 'px';
-      clone.style.height = tgtRect.height + 'px';
-      clone.style.backgroundImage = `url(${newIconsByCol[c][i]})`;
-      clone.style.zIndex = 999;
-      // animate by translate
-      const dy = (tgtRect.top - startTop);
-      // set initial transform 0, then translate to dy
-      clone.style.transform = `translateY(${0}px)`;
-      clone.style.transition = "transform 0.5s ease";
-      document.body.appendChild(clone);
-      // force reflow to ensure transition starts
-      void clone.offsetWidth;
-      clone.style.transform = `translateY(${dy}px)`;
-      clones.push(clone);
+    // 新補圖：起始時隱藏，滑入格內才顯示
+    for(let i=0;i<emptySpots;i++){
+      const newIcon = icons[Math.floor(Math.random()*icons.length)];
+      board[i][c] = newIcon;
+
+      const newCell = document.createElement('div');
+      newCell.className = 'cell';
+      newCell.dataset.row = i;
+      newCell.dataset.col = c;
+      newCell.style.backgroundImage = `url(${newIcon})`;
+      newCell.style.transform = `translateY(${-(emptySpots-i+1)*65}px)`;
+      newCell.style.opacity = "0"; // ✅ 一開始不可見
+      document.getElementById("board").appendChild(newCell);
+      addEvent(newCell);
+
+      const dy = (emptySpots - i + 1) * newCell.offsetHeight;
+      cellsToMove.push({cell: newCell, dy});
     }
   }
 
-  // 5) trigger moves for existing cells
-  moves.forEach(m=>{
-    m.el.style.transition = "transform 0.5s ease";
-    m.el.style.transform = `translateY(${m.dy}px)`;
+  // 滑落動畫
+  cellsToMove.forEach(item=>{
+    item.cell.style.transition = "transform 0.5s ease, opacity 0.2s ease";
+    item.cell.style.transform = `translateY(${item.dy}px)`;
+    setTimeout(()=> item.cell.style.opacity = "1", 200); // ✅ 滑入後才顯示
   });
 
-  // 6) after animation, remove clones, reset transforms, update board to new state and renderBoard
   setTimeout(()=>{
-    clones.forEach(cl=>cl.remove());
-    moves.forEach(m=>{
-      m.el.style.transition = "";
-      m.el.style.transform = "";
+    cellsToMove.forEach(item=>{
+      item.cell.style.transition = "";
+      item.cell.style.transform = "";
     });
-
-    // build newBoard from boardBefore + newIconsByCol
-    const newBoard = Array.from({length: rows}, () => Array(cols).fill(null));
-    for(let c=0;c<cols;c++){
-      // collect existing icons in this column from boardBefore, top->bottom
-      const existing = [];
-      for(let r=0;r<rows;r++){
-        if(boardBefore[r][c] !== null) existing.push(boardBefore[r][c]);
-      }
-      // place existing from bottom up
-      let writeRow = rows-1;
-      for(let k=existing.length-1;k>=0;k--){
-        newBoard[writeRow][c] = existing[k];
-        writeRow--;
-      }
-      // fill remaining top slots with newIconsByCol[c] in order (top to bottom)
-      const empties = writeRow + 1;
-      // newIconsByCol[c] has length = empties
-      for(let i=0;i<empties;i++){
-        newBoard[i][c] = newIconsByCol[c][i];
-      }
-    }
-
-    // replace board with newBoard
-    board = newBoard;
     renderBoard();
+    handleMatches();
+  },500);
 
-    // continue chain: check new matches
-    const newMatches = checkMatches();
-    if(newMatches.length>0){
-      setTimeout(()=>{ clearMatches(newMatches); setTimeout(()=>applyGravity(),300); },100);
-    } else if(!hasPossibleMove()){
-      gameOver();
-    }
-
-  }, 500);
-
-  return true;
+  return moved;
 }
-// ===== end applyGravity() 修正版 =====
 
 function hasPossibleMove(){
   for(let r=0;r<rows;r++){
@@ -408,10 +299,7 @@ function gameOver(){
   alert("遊戲結束！最終喵嗚值：" + score);
 }
 
-// start
 initBoard();
 </script>
-
 </body>
 </html>
-
