@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 v10</title>
+<title>喵嗚消消樂 8x8</title>
 <style>
 body {
   text-align: center;
@@ -249,123 +249,24 @@ function clearMatches(matches){
   });
 }
 
-// 自然下落動畫
+// 自然同步下落 + 補格子
 function applyGravityAndRefill(){
   const cellsToMove = [];
 
-  // 先處理每列
   for(let c=0;c<cols;c++){
     let emptySpots = 0;
-    // 從下到上
     for(let r=rows-1;r>=0;r--){
       if(board[r][c]===null){
         emptySpots++;
-      } else {
-        if(emptySpots>0){
-          const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-          if(cell){
-            const dy = emptySpots * cell.offsetHeight;
-            cellsToMove.push({cell, fromRow:r, toRow:r+emptySpots, dy});
-          }
-          board[r+emptySpots][c] = board[r][c];
-          board[r][c] = null;
+      } else if(emptySpots>0){
+        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        if(cell){
+          const dy = emptySpots * cell.offsetHeight;
+          cellsToMove.push({cell, fromRow:r, toRow:r+emptySpots, dy});
         }
+        board[r+emptySpots][c] = board[r][c];
+        board[r][c] = null;
       }
     }
-    // 補上空格為新圖案
-    for(let i=0;i<emptySpots;i++){
-      const r = i;
-      board[r][c] = randomIcon();
-      const cell = document.createElement("div");
-      cell.classList.add("cell");
-      cell.style.backgroundImage = `url("${board[r][c]}")`;
-      cell.dataset.row = r;
-      cell.dataset.col = c;
-      cell.style.transform = `translateY(${emptySpots*cell.offsetHeight}px)`; // 從上方滑入
-      addDragEvents(cell);
-      game.appendChild(cell);
-      cellsToMove.push({cell, fromRow:r, toRow:r, dy:-emptySpots*cell.offsetHeight});
-    }
-  }
-
-  // 套用動畫
-  cellsToMove.forEach(item=>{
-    item.cell.style.transition = "transform 0.5s ease";
-    item.cell.style.transform = "translateY(0)";
-  });
-
-  // 動畫結束後刷新 DOM
-  setTimeout(()=>{
-    cellsToMove.forEach(item=>{
-      item.cell.style.transition = "";
-      item.cell.style.transform = "";
-    });
-    renderBoard();
-  },500);
-}
-
-// 補新格
-function refillBoard(){
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(board[r][c]===null){
-        board[r][c] = randomIcon();
-      }
-    }
-  }
-  renderBoard();
-}
-
-// 處理消除
-function handleMatches(matches){
-  clearMatches(matches);
-  setTimeout(()=>{
-    let moved = applyGravity();
-    setTimeout(()=>{
-      refillBoard();
-      const newMatches = checkMatches();
-      if(newMatches.length>0) handleMatches(newMatches);
-      else if(!hasPossibleMoves()) gameOver();
-    }, moved? 500:0);
-  },500);
-}
-
-function showPlusEffect(r,c){
-  const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-  if(!cell) return;
-  const rect=cell.getBoundingClientRect();
-  const plus=document.createElement("div");
-  plus.classList.add("plus-text");
-  plus.textContent="+";
-  plus.style.left=rect.left+"px";
-  plus.style.top=rect.top+"px";
-  document.body.appendChild(plus);
-  setTimeout(()=>plus.remove(),800);
-}
-
-function hasPossibleMoves(){
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
-      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
-    }
-  }
-  return false;
-}
-
-function swapCellsSimple(r1,c1,r2,c2){
-  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
-}
-
-function gameOver(){
-  alert("遊戲結束！最終喵嗚值：" + score);
-}
-
-initBoard();
-</script>
-
-</body>
-</html>
-
-
-
+    // 補上新圖案從上方滑入
+    for(let
