@@ -1,235 +1,271 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>喵喵消消樂</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>喵嗚消消樂</title>
 <style>
-  body {
-    background-color: white;
-    text-align: center;
-    font-family: "微軟正黑體";
-    user-select: none;
-  }
-  h1 {
-    font-size: 28px;
-    font-weight: bold;
-  }
-  #game {
-    display: grid;
-    grid-template-columns: repeat(8, 80px);
-    grid-template-rows: repeat(8, 80px);
-    gap: 2px;
-    justify-content: center;
-    margin-top: 10px;
+  body { text-align: center; font-family: 'Microsoft JhengHei'; background: #fff; }
+  #score { font-size: 28px; font-weight: bold; margin: 20px; }
+  #board {
+    width: 520px; height: 520px;
+    margin: auto; display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 2px; position: relative;
   }
   .cell {
-    width: 80px;
-    height: 80px;
-    position: relative;
-  }
-  img {
-    width: 80px;
-    height: 80px;
+    width: 62px; height: 62px;
+    background-size: cover; background-position: center;
     position: absolute;
-    transition: top 0.25s ease;
-  }
-  .dragging {
-    transform: scale(1.3);
-    z-index: 1000;
+    transition: transform 0.5s ease;
   }
 </style>
 </head>
 <body>
-<h1>喵鳴值：<span id="score">0</span></h1>
-<div id="game"></div>
+
+<div id="score">喵嗚值：0</div>
+<div id="board"></div>
 
 <script>
-const rows = 8;
-const cols = 8;
-const types = 5;
-const game = document.getElementById("game");
-const scoreDisplay = document.getElementById("score");
-let score = 0;
-
-let board = [];
-let images = [];
-
-const catImgs = [
-  "https://i.imgur.com/E9oQ2BM.png",
-  "https://i.imgur.com/SaZ8KzH.png",
-  "https://i.imgur.com/fGZKR1C.png",
-  "https://i.imgur.com/vyTQy5C.png",
-  "https://i.imgur.com/4HkzMPk.png"
+const rows = 8, cols = 8;
+const icons = [
+  'cat1.png','cat2.png','cat3.png','cat4.png','cat5.png','cat6.png','cat7.png'
 ];
+let board = [];
+let score = 0;
+let cellSize = 65;
+const boardDiv = document.getElementById('board');
 
-function randomCat() {
-  return Math.floor(Math.random() * types);
-}
-
-function createBoard() {
-  board = [];
-  images = [];
-  game.innerHTML = "";
-  for (let r = 0; r < rows; r++) {
-    const row = [];
-    const imgRow = [];
-    for (let c = 0; c < cols; c++) {
-      const type = randomCat();
-      row.push(type);
-
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      const img = document.createElement("img");
-      img.src = catImgs[type];
-      img.draggable = false;
-      img.dataset.row = r;
-      img.dataset.col = c;
-      img.dataset.type = type;
-      img.style.top = "0px";
-
-      img.addEventListener("mousedown", startDrag);
-      img.addEventListener("touchstart", startDrag, { passive: true });
-
-      cell.appendChild(img);
-      game.appendChild(cell);
-      imgRow.push(img);
+// 🐾 初始化
+function initBoard(){
+  do {
+    board = [];
+    for(let r=0;r<rows;r++){
+      let row=[];
+      for(let c=0;c<cols;c++){
+        row.push(icons[Math.floor(Math.random()*icons.length)]);
+      }
+      board.push(row);
     }
-    board.push(row);
-    images.push(imgRow);
-  }
+  } while(checkMatches().length>0);
+  renderBoard();
 }
 
-let dragItem = null;
-let startRow, startCol;
-function startDrag(e) {
-  e.preventDefault();
-  dragItem = e.target;
-  startRow = parseInt(dragItem.dataset.row);
-  startCol = parseInt(dragItem.dataset.col);
-  dragItem.classList.add("dragging");
-  document.addEventListener("mouseup", endDrag);
-  document.addEventListener("touchend", endDrag);
-  document.addEventListener("mousemove", moveDrag);
-  document.addEventListener("touchmove", moveDrag, { passive: false });
-}
-
-function moveDrag(e) {
-  if (!dragItem) return;
-  const touch = e.touches ? e.touches[0] : e;
-  const target = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (target && target.tagName === "IMG" && target !== dragItem) {
-    const endRow = parseInt(target.dataset.row);
-    const endCol = parseInt(target.dataset.col);
-    if (Math.abs(startRow - endRow) + Math.abs(startCol - endCol) === 1) {
-      swap(startRow, startCol, endRow, endCol);
-      dragItem.classList.remove("dragging");
-      dragItem = null;
-      removeDragListeners();
+// 🖼️ 繪出棋盤
+function renderBoard(){
+  boardDiv.innerHTML = '';
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.style.backgroundImage = `url(${board[r][c]})`;
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.style.left = (c * cellSize) + 'px';
+      cell.style.top = (r * cellSize) + 'px';
+      addDragEvents(cell);
+      boardDiv.appendChild(cell);
     }
   }
 }
 
-function endDrag() {
-  if (dragItem) dragItem.classList.remove("dragging");
-  dragItem = null;
-  removeDragListeners();
-}
+// 🎯 加上滑動事件
+function addDragEvents(cell){
+  let startX, startY, startRow, startCol;
 
-function removeDragListeners() {
-  document.removeEventListener("mouseup", endDrag);
-  document.removeEventListener("touchend", endDrag);
-  document.removeEventListener("mousemove", moveDrag);
-  document.removeEventListener("touchmove", moveDrag);
-}
+  cell.addEventListener('touchstart', e=>{
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    startRow = parseInt(cell.dataset.row);
+    startCol = parseInt(cell.dataset.col);
+  });
 
-function swap(r1, c1, r2, c2) {
-  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
-  [images[r1][c1].src, images[r2][c2].src] = [images[r2][c2].src, images[r1][c1].src];
-  [images[r1][c1].dataset.type, images[r2][c2].dataset.type] = [images[r2][c2].dataset.type, images[r1][c1].dataset.type];
-  checkMatches();
-}
+  cell.addEventListener('mousedown', e=>{
+    startX = e.clientX; startY = e.clientY;
+    startRow = parseInt(cell.dataset.row);
+    startCol = parseInt(cell.dataset.col);
+  });
 
-function checkMatches() {
-  let matched = [];
-  for (let r = 0; r < rows; r++) {
-    matched[r] = [];
-    for (let c = 0; c < cols; c++) {
-      matched[r][c] = false;
+  function endDrag(x,y){
+    const dx = x - startX, dy = y - startY;
+    let targetRow = startRow, targetCol = startCol;
+    if(Math.abs(dx) > Math.abs(dy)){
+      if(dx > 20) targetCol++;
+      else if(dx < -20) targetCol--;
+    } else {
+      if(dy > 20) targetRow++;
+      else if(dy < -20) targetRow--;
+    }
+    if(targetRow>=0 && targetRow<rows && targetCol>=0 && targetCol<cols){
+      swapCellsAnimated(startRow,startCol,targetRow,targetCol);
     }
   }
 
-  // 檢查橫向
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols - 2; c++) {
-      const type = board[r][c];
-      if (type === board[r][c + 1] && type === board[r][c + 2]) {
-        matched[r][c] = matched[r][c + 1] = matched[r][c + 2] = true;
+  cell.addEventListener('touchend', e=>{
+    const t = e.changedTouches[0];
+    endDrag(t.clientX, t.clientY);
+  });
+
+  cell.addEventListener('mouseup', e=>{
+    endDrag(e.clientX, e.clientY);
+  });
+}
+
+// 🔄 動畫交換
+function swapCellsAnimated(r1,c1,r2,c2){
+  const cells = document.querySelectorAll('.cell');
+  const cell1 = [...cells].find(el=>el.dataset.row==r1 && el.dataset.col==c1);
+  const cell2 = [...cells].find(el=>el.dataset.row==r2 && el.dataset.col==c2);
+  if(!cell1 || !cell2) return;
+
+  const dx = (c2 - c1) * cellSize;
+  const dy = (r2 - r1) * cellSize;
+
+  cell1.style.transform = `translate(${dx}px, ${dy}px)`;
+  cell2.style.transform = `translate(${-dx}px, ${-dy}px)`;
+
+  setTimeout(()=>{
+    swapCellsSimple(r1,c1,r2,c2);
+    const matches = checkMatches();
+    if(matches.length>0){
+      handleMatches(matches);
+    } else {
+      // ❗ 無配對則滑回原位
+      cell1.style.transform = '';
+      cell2.style.transform = '';
+      setTimeout(renderBoard, 300);
+    }
+  },300);
+}
+
+// ✅ 基本交換
+function swapCellsSimple(r1,c1,r2,c2){
+  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+}
+
+// 🔍 檢查配對
+function checkMatches(){
+  const matches=[];
+  // 橫向
+  for(let r=0;r<rows;r++){
+    let count=1;
+    for(let c=1;c<cols;c++){
+      if(board[r][c]===board[r][c-1]) count++;
+      else {
+        if(count>=3) for(let k=0;k<count;k++) matches.push([r,c-1-k]);
+        count=1;
       }
     }
+    if(count>=3) for(let k=0;k<count;k++) matches.push([r,cols-1-k]);
   }
-
-  // 檢查縱向
-  for (let c = 0; c < cols; c++) {
-    for (let r = 0; r < rows - 2; r++) {
-      const type = board[r][c];
-      if (type === board[r + 1][c] && type === board[r + 2][c]) {
-        matched[r][c] = matched[r + 1][c] = matched[r + 2][c] = true;
+  // 直向
+  for(let c=0;c<cols;c++){
+    let count=1;
+    for(let r=1;r<rows;r++){
+      if(board[r][c]===board[r-1][c]) count++;
+      else {
+        if(count>=3) for(let k=0;k<count;k++) matches.push([r-1-k,c]);
+        count=1;
       }
     }
+    if(count>=3) for(let k=0;k<count;k++) matches.push([rows-1-k,c]);
   }
+  return matches;
+}
 
-  let found = false;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (matched[r][c]) {
-        found = true;
+// 💥 處理配對消除
+function handleMatches(matches){
+  const uniqueMatches = [...new Set(matches.map(JSON.stringify))].map(JSON.parse);
+  const groupCount = uniqueMatches.length;
+  if(groupCount===0) return;
+
+  let bonusPerTile = 1;
+  if(groupCount>=5) bonusPerTile=3;
+  else if(groupCount===4) bonusPerTile=2;
+  score += bonusPerTile * groupCount;
+  document.getElementById('score').innerText = `喵嗚值：${score}`;
+
+  uniqueMatches.forEach(([r,c])=>{
+    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+    if(cell){
+      cell.style.transform = 'scale(1.3)';
+      cell.style.transition = 'transform 0.3s ease';
+      setTimeout(()=>{
+        cell.remove();
         board[r][c] = null;
-        images[r][c].style.opacity = "0";
-      }
+      },300);
+    } else {
+      board[r][c] = null;
     }
-  }
+  });
 
-  if (found) {
-    score += 3;
-    scoreDisplay.textContent = score;
-    setTimeout(dropCats, 250);
-  }
+  setTimeout(()=>{
+    applyGravity();
+  },350);
 }
 
-function dropCats() {
-  for (let c = 0; c < cols; c++) {
-    let empty = 0;
-    for (let r = rows - 1; r >= 0; r--) {
-      if (board[r][c] === null) {
+// 🪂 修正版：所有圖片（舊與新）同步下落
+function applyGravity(){
+  const moving = [];
+
+  for(let c=0;c<cols;c++){
+    let empty=0;
+    for(let r=rows-1;r>=0;r--){
+      if(board[r][c]===null){
         empty++;
-      } else if (empty > 0) {
-        board[r + empty][c] = board[r][c];
-        images[r + empty][c].src = images[r][c].src;
-        images[r + empty][c].dataset.type = images[r][c].dataset.type;
-        images[r + empty][c].style.top = `${80 * empty}px`; // ✅ 動畫滑落
-        board[r][c] = null;
+      }else if(empty>0){
+        board[r+empty][c]=board[r][c];
+        board[r][c]=null;
+        const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        if(cell){
+          moving.push({cell,dy:empty*cellSize,newRow:r+empty,newCol:c});
+        }
       }
     }
 
-    // 補新圖（從頂部同步滑下）
-    for (let i = 0; i < empty; i++) {
-      const newType = randomCat();
-      board[i][c] = newType;
-      images[i][c].src = catImgs[newType];
-      images[i][c].dataset.type = newType;
-      images[i][c].style.top = `${-80 * (empty - i)}px`; // ✅ 從上方生成
-      setTimeout(() => {
-        images[i][c].style.top = "0px";
-        images[i][c].style.opacity = "1";
-      }, 20);
+    // 新補的圖案，加入同步下落動畫
+    for(let i=0;i<empty;i++){
+      const icon=icons[Math.floor(Math.random()*icons.length)];
+      board[i][c]=icon;
+      const newCell=document.createElement('div');
+      newCell.className='cell';
+      newCell.style.backgroundImage=`url(${icon})`;
+      newCell.dataset.row=i;
+      newCell.dataset.col=c;
+      newCell.style.left=(c*cellSize)+'px';
+      newCell.style.top=(-empty+i)*cellSize+'px';
+      newCell.style.transition='transform 0.5s ease';
+      newCell.style.transform=`translateY(${empty*cellSize}px)`;
+      addDragEvents(newCell);
+      boardDiv.appendChild(newCell);
+      moving.push({cell:newCell,dy:(empty)*cellSize,newRow:i,newCol:c});
     }
   }
 
-  setTimeout(() => checkMatches(), 350);
+  moving.forEach(({cell,dy})=>{
+    requestAnimationFrame(()=>{
+      cell.style.transition='transform 0.5s ease';
+      cell.style.transform=`translateY(${dy}px)`;
+    });
+  });
+
+  setTimeout(()=>{
+    moving.forEach(({cell,newRow,newCol})=>{
+      cell.style.transition='';
+      cell.style.transform='';
+      cell.style.top=(newRow*cellSize)+'px';
+      cell.style.left=(newCol*cellSize)+'px';
+      cell.dataset.row=newRow;
+      cell.dataset.col=newCol;
+    });
+    renderBoard();
+    const matches=checkMatches();
+    if(matches.length>0) handleMatches(matches);
+  },500);
 }
 
-createBoard();
+initBoard();
 </script>
 </body>
 </html>
