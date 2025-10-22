@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚消消樂</title>
+<title>喵嗚消消樂1</title>
 <style>
   body { text-align: center; font-family: 'Microsoft JhengHei'; background: #fff; }
   #score { font-size: 28px; font-weight: bold; margin: 20px; }
@@ -29,9 +29,7 @@
 
 <script>
 const rows = 8, cols = 8;
-const icons = [
-  '1.png','2.png','3.png','4.png','5.png','6.png','7.png'
-];
+const icons = ['1.png','2.png','3.png','4.png','5.png','6.png','7.png'];
 let board = [];
 let score = 0;
 let cellSize = 65;
@@ -49,23 +47,28 @@ function initBoard(){
       board.push(row);
     }
   } while(checkMatches().length>0);
-  renderBoard();
+  renderBoard(true); // 初次建立（會綁事件）
 }
 
 // 🖼️ 繪出棋盤
-function renderBoard(){
-  boardDiv.innerHTML = '';
+function renderBoard(initial=false){
+  if(initial) boardDiv.innerHTML = ''; // ⚠️ 僅首次清空，避免事件丟失
+
+  // 重新更新位置與背景，但不清除現有 cell
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      const cell = document.createElement('div');
-      cell.className = 'cell';
+      let cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+      if(!cell){ // 若不存在才新建
+        cell = document.createElement('div');
+        cell.className = 'cell';
+        addDragEvents(cell);
+        boardDiv.appendChild(cell);
+      }
       cell.style.backgroundImage = `url(${board[r][c]})`;
       cell.dataset.row = r;
       cell.dataset.col = c;
       cell.style.left = (c * cellSize) + 'px';
       cell.style.top = (r * cellSize) + 'px';
-      addDragEvents(cell);
-      boardDiv.appendChild(cell);
     }
   }
 }
@@ -114,9 +117,8 @@ function addDragEvents(cell){
 
 // 🔄 動畫交換
 function swapCellsAnimated(r1,c1,r2,c2){
-  const cells = document.querySelectorAll('.cell');
-  const cell1 = [...cells].find(el=>el.dataset.row==r1 && el.dataset.col==c1);
-  const cell2 = [...cells].find(el=>el.dataset.row==r2 && el.dataset.col==c2);
+  const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
+  const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
   if(!cell1 || !cell2) return;
 
   const dx = (c2 - c1) * cellSize;
@@ -135,7 +137,6 @@ function swapCellsAnimated(r1,c1,r2,c2){
       // ❗ 無配對則滑回原位
       cell1.style.transform = '';
       cell2.style.transform = '';
-      setTimeout(renderBoard, 300);
     }
   },300);
 }
@@ -201,9 +202,7 @@ function handleMatches(matches){
     }
   });
 
-  setTimeout(()=>{
-    applyGravity();
-  },350);
+  setTimeout(()=>{ applyGravity(); },350);
 }
 
 // 🪂 下落動畫（上層補入 + 同步滑落）
@@ -253,7 +252,7 @@ function applyGravity(){
       cell.dataset.row=newRow;
       cell.dataset.col=newCol;
     });
-    renderBoard();
+    renderBoard(false);
     const matches=checkMatches();
     if(matches.length>0) handleMatches(matches);
   },500);
