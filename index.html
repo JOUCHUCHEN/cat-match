@@ -1,159 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>喵喵消消樂</title>
+<style>
+  body {
+    background-color: white;
+    text-align: center;
+    font-family: "微軟正黑體";
+    user-select: none;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: bold;
+  }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(8, 80px);
+    grid-template-rows: repeat(8, 80px);
+    gap: 2px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .cell {
+    width: 80px;
+    height: 80px;
+    position: relative;
+  }
+  img {
+    width: 80px;
+    height: 80px;
+    position: absolute;
+    transition: top 0.25s ease;
+  }
+  .dragging {
+    transform: scale(1.3);
+    z-index: 1000;
+  }
+</style>
+</head>
+<body>
+<h1>喵鳴值：<span id="score">0</span></h1>
+<div id="game"></div>
+
+<script>
 const rows = 8;
 const cols = 8;
-const catTypes = 6;
-const size = 64;
-
-let board = [];
-let selected = null;
+const types = 5;
+const game = document.getElementById("game");
+const scoreDisplay = document.getElementById("score");
 let score = 0;
 
+let board = [];
+let images = [];
+
+const catImgs = [
+  "https://i.imgur.com/E9oQ2BM.png",
+  "https://i.imgur.com/SaZ8KzH.png",
+  "https://i.imgur.com/fGZKR1C.png",
+  "https://i.imgur.com/vyTQy5C.png",
+  "https://i.imgur.com/4HkzMPk.png"
+];
+
 function randomCat() {
-  const img = new Image();
-  img.src = `cats/cat${Math.floor(Math.random() * catTypes) + 1}.png`;
-  return img;
+  return Math.floor(Math.random() * types);
 }
 
-function setup() {
-  createCanvas(cols * size, rows * size + 50);
-  initBoard();
+function createBoard() {
+  board = [];
+  images = [];
+  game.innerHTML = "";
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    const imgRow = [];
+    for (let c = 0; c < cols; c++) {
+      const type = randomCat();
+      row.push(type);
+
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const img = document.createElement("img");
+      img.src = catImgs[type];
+      img.draggable = false;
+      img.dataset.row = r;
+      img.dataset.col = c;
+      img.dataset.type = type;
+      img.style.top = "0px";
+
+      img.addEventListener("mousedown", startDrag);
+      img.addEventListener("touchstart", startDrag, { passive: true });
+
+      cell.appendChild(img);
+      game.appendChild(cell);
+      imgRow.push(img);
+    }
+    board.push(row);
+    images.push(imgRow);
+  }
 }
 
-function initBoard() {
-  for (let y = 0; y < rows; y++) {
-    board[y] = [];
-    for (let x = 0; x < cols; x++) {
-      let cat = randomCat();
-      board[y][x] = { img: cat, x, y, targetY: y * size, falling: false };
+let dragItem = null;
+let startRow, startCol;
+function startDrag(e) {
+  e.preventDefault();
+  dragItem = e.target;
+  startRow = parseInt(dragItem.dataset.row);
+  startCol = parseInt(dragItem.dataset.col);
+  dragItem.classList.add("dragging");
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("touchend", endDrag);
+  document.addEventListener("mousemove", moveDrag);
+  document.addEventListener("touchmove", moveDrag, { passive: false });
+}
+
+function moveDrag(e) {
+  if (!dragItem) return;
+  const touch = e.touches ? e.touches[0] : e;
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  if (target && target.tagName === "IMG" && target !== dragItem) {
+    const endRow = parseInt(target.dataset.row);
+    const endCol = parseInt(target.dataset.col);
+    if (Math.abs(startRow - endRow) + Math.abs(startCol - endCol) === 1) {
+      swap(startRow, startCol, endRow, endCol);
+      dragItem.classList.remove("dragging");
+      dragItem = null;
+      removeDragListeners();
     }
   }
-  removeMatches();
 }
 
-function draw() {
-  background(255);
-  drawBoard();
-  drawScore();
-  updateFalling();
+function endDrag() {
+  if (dragItem) dragItem.classList.remove("dragging");
+  dragItem = null;
+  removeDragListeners();
 }
 
-function drawBoard() {
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      let cell = board[y][x];
-      if (cell && cell.img) {
-        image(cell.img, x * size, cell.targetY, size, size);
+function removeDragListeners() {
+  document.removeEventListener("mouseup", endDrag);
+  document.removeEventListener("touchend", endDrag);
+  document.removeEventListener("mousemove", moveDrag);
+  document.removeEventListener("touchmove", moveDrag);
+}
+
+function swap(r1, c1, r2, c2) {
+  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+  [images[r1][c1].src, images[r2][c2].src] = [images[r2][c2].src, images[r1][c1].src];
+  [images[r1][c1].dataset.type, images[r2][c2].dataset.type] = [images[r2][c2].dataset.type, images[r1][c1].dataset.type];
+  checkMatches();
+}
+
+function checkMatches() {
+  let matched = [];
+  for (let r = 0; r < rows; r++) {
+    matched[r] = [];
+    for (let c = 0; c < cols; c++) {
+      matched[r][c] = false;
+    }
+  }
+
+  // 檢查橫向
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols - 2; c++) {
+      const type = board[r][c];
+      if (type === board[r][c + 1] && type === board[r][c + 2]) {
+        matched[r][c] = matched[r][c + 1] = matched[r][c + 2] = true;
       }
     }
   }
-}
 
-function drawScore() {
-  fill(0);
-  textSize(24);
-  text(`喵鳴值：${score}`, 10, height - 10);
-}
-
-function mousePressed() {
-  let x = Math.floor(mouseX / size);
-  let y = Math.floor(mouseY / size);
-  if (x < 0 || x >= cols || y < 0 || y >= rows) return;
-
-  if (!selected) {
-    selected = { x, y };
-  } else {
-    if (dist(selected.x, selected.y, x, y) === 1) {
-      swapCats(selected, { x, y });
-      if (!removeMatches()) {
-        // 沒有配對成功 → 滑回原位
-        setTimeout(() => swapCats(selected, { x, y }), 200);
-      }
-    }
-    selected = null;
-  }
-}
-
-function swapCats(a, b) {
-  let temp = board[a.y][a.x];
-  board[a.y][a.x] = board[b.y][b.x];
-  board[b.y][b.x] = temp;
-}
-
-function removeMatches() {
-  let remove = [];
-  // 水平
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols - 2; x++) {
-      if (board[y][x] && board[y][x + 1] && board[y][x + 2]) {
-        if (board[y][x].img.src === board[y][x + 1].img.src &&
-            board[y][x].img.src === board[y][x + 2].img.src) {
-          remove.push({ x, y }, { x: x + 1, y }, { x: x + 2, y });
-        }
-      }
-    }
-  }
-  // 垂直
-  for (let y = 0; y < rows - 2; y++) {
-    for (let x = 0; x < cols; x++) {
-      if (board[y][x] && board[y + 1][x] && board[y + 2][x]) {
-        if (board[y][x].img.src === board[y + 1][x].img.src &&
-            board[y][x].img.src === board[y + 2][x].img.src) {
-          remove.push({ x, y }, { x, y: y + 1 }, { x, y: y + 2 });
-        }
+  // 檢查縱向
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows - 2; r++) {
+      const type = board[r][c];
+      if (type === board[r + 1][c] && type === board[r + 2][c]) {
+        matched[r][c] = matched[r + 1][c] = matched[r + 2][c] = true;
       }
     }
   }
 
-  if (remove.length > 0) {
-    score += remove.length;
-    remove.forEach(p => board[p.y][p.x] = null);
-    setTimeout(dropCats, 200); // ⬅️ 立即滑落
-    return true;
+  let found = false;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (matched[r][c]) {
+        found = true;
+        board[r][c] = null;
+        images[r][c].style.opacity = "0";
+      }
+    }
   }
-  return false;
+
+  if (found) {
+    score += 3;
+    scoreDisplay.textContent = score;
+    setTimeout(dropCats, 250);
+  }
 }
 
 function dropCats() {
-  for (let x = 0; x < cols; x++) {
-    let emptySpaces = 0;
-    for (let y = rows - 1; y >= 0; y--) {
-      if (board[y][x] === null) {
-        emptySpaces++;
-      } else if (emptySpaces > 0) {
-        // 下滑
-        board[y + emptySpaces][x] = board[y][x];
-        board[y][x] = null;
-        board[y + emptySpaces][x].targetY = (y + emptySpaces) * size;
-        board[y + emptySpaces][x].falling = true;
+  for (let c = 0; c < cols; c++) {
+    let empty = 0;
+    for (let r = rows - 1; r >= 0; r--) {
+      if (board[r][c] === null) {
+        empty++;
+      } else if (empty > 0) {
+        board[r + empty][c] = board[r][c];
+        images[r + empty][c].src = images[r][c].src;
+        images[r + empty][c].dataset.type = images[r][c].dataset.type;
+        images[r + empty][c].style.top = `${80 * empty}px`; // ✅ 動畫滑落
+        board[r][c] = null;
       }
     }
-    // 產生新圖案
-    for (let i = 0; i < emptySpaces; i++) {
-      let newCat = randomCat();
-      board[i][x] = { img: newCat, x, y: i, targetY: i * size, falling: true };
-      // 👇 讓新貓從螢幕上方掉下來
-      board[i][x].targetY = i * size;
+
+    // 補新圖（從頂部同步滑下）
+    for (let i = 0; i < empty; i++) {
+      const newType = randomCat();
+      board[i][c] = newType;
+      images[i][c].src = catImgs[newType];
+      images[i][c].dataset.type = newType;
+      images[i][c].style.top = `${-80 * (empty - i)}px`; // ✅ 從上方生成
+      setTimeout(() => {
+        images[i][c].style.top = "0px";
+        images[i][c].style.opacity = "1";
+      }, 20);
     }
   }
+
+  setTimeout(() => checkMatches(), 350);
 }
 
-function updateFalling() {
-  let fallingSpeed = 12;
-  let moving = false;
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      let cell = board[y][x];
-      if (cell && cell.falling) {
-        if (cell.targetY > y * size) {
-          cell.targetY -= fallingSpeed;
-          moving = true;
-        } else {
-          cell.targetY = y * size;
-          cell.falling = false;
-        }
-      }
-    }
-  }
-  if (!moving) {
-    removeMatches();
-  }
-}
+createBoard();
+</script>
+</body>
+</html>
