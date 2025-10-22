@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>喵嗚消消樂1</title>
+<title>喵嗚消消樂</title>
 <style>
   body { text-align: center; font-family: 'Microsoft JhengHei'; background: #fff; }
   #score { font-size: 28px; font-weight: bold; margin: 20px; }
@@ -122,6 +122,7 @@ function swapCellsAnimated(r1,c1,r2,c2){
   const dx = (c2 - c1) * cellSize;
   const dy = (r2 - r1) * cellSize;
 
+  // 動畫移動
   cell1.style.transform = `translate(${dx}px, ${dy}px)`;
   cell2.style.transform = `translate(${-dx}px, ${-dy}px)`;
 
@@ -205,10 +206,9 @@ function handleMatches(matches){
   },350);
 }
 
-// 🪂 修正版：所有圖片（舊與新）同步下落
+// 🪂 下落動畫（上層補入 + 同步滑落）
 function applyGravity(){
   const moving = [];
-
   for(let c=0;c<cols;c++){
     let empty=0;
     for(let r=rows-1;r>=0;r--){
@@ -223,8 +223,6 @@ function applyGravity(){
         }
       }
     }
-
-    // 新補的圖案，加入同步下落動畫
     for(let i=0;i<empty;i++){
       const icon=icons[Math.floor(Math.random()*icons.length)];
       board[i][c]=icon;
@@ -235,8 +233,6 @@ function applyGravity(){
       newCell.dataset.col=c;
       newCell.style.left=(c*cellSize)+'px';
       newCell.style.top=(-empty+i)*cellSize+'px';
-      newCell.style.transition='transform 0.5s ease';
-      newCell.style.transform=`translateY(${empty*cellSize}px)`;
       addDragEvents(newCell);
       boardDiv.appendChild(newCell);
       moving.push({cell:newCell,dy:(empty)*cellSize,newRow:i,newCol:c});
@@ -244,10 +240,8 @@ function applyGravity(){
   }
 
   moving.forEach(({cell,dy})=>{
-    requestAnimationFrame(()=>{
-      cell.style.transition='transform 0.5s ease';
-      cell.style.transform=`translateY(${dy}px)`;
-    });
+    cell.style.transition='transform 0.5s ease';
+    cell.style.transform=`translateY(${dy}px)`;
   });
 
   setTimeout(()=>{
@@ -269,4 +263,3 @@ initBoard();
 </script>
 </body>
 </html>
-
