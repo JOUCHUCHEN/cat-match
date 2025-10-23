@@ -226,13 +226,19 @@ function checkMatches() {
   return matches;
 }
 
-function clearMatches(matches){
+function clearMatches(matches) {
   const cleared = new Set();
-  matches.forEach(([r,c])=>{
-    const key = r+'-'+c;
-    if(!cleared.has(key)){
+  matches.forEach(([r, c]) => {
+    const key = r + '-' + c;
+    if (!cleared.has(key)) {
+      const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+      if (cell) {
+        // 🔸淡出動畫
+        cell.style.transition = "opacity 0.3s ease";
+        cell.style.opacity = "0";
+        showPlusEffect(r, c);
+      }
       board[r][c] = null;
-      showPlusEffect(r,c);
       cleared.add(key);
     }
   });
@@ -240,20 +246,18 @@ function clearMatches(matches){
   scoreEl.textContent = score;
 }
 
-function applyGravity() {
-  let moved = false;
-  const cells = document.querySelectorAll(".cell");
 
-  // 建立一個下落距離的紀錄
+function applyGravity(callback) {
   const fallDistance = Array(rows).fill(null).map(() => Array(cols).fill(0));
+  let moved = false;
 
+  // 計算下落
   for (let c = 0; c < cols; c++) {
     let emptyRow = null;
     for (let r = rows - 1; r >= 0; r--) {
       if (board[r][c] === null) {
         if (emptyRow === null) emptyRow = r;
       } else if (emptyRow !== null) {
-        // 有空格在下面，讓上面的往下掉
         board[emptyRow][c] = board[r][c];
         board[r][c] = null;
         fallDistance[emptyRow][c] = emptyRow - r;
@@ -263,53 +267,80 @@ function applyGravity() {
     }
   }
 
-  // 套用滑落動畫
+  // 先畫出下落前的畫面
+  renderBoard();
+
+  const cells = document.querySelectorAll(".cell");
   cells.forEach(cell => {
     const r = +cell.dataset.row;
     const c = +cell.dataset.col;
-    if (fallDistance[r][c] > 0) {
-      const distance = fallDistance[r][c] * cell.offsetHeight * 1.1; // 位移距離
-      cell.style.transition = "transform 0.4s ease-out";
+    const dist = fallDistance[r][c];
+    if (dist > 0) {
+      const distance = dist * cell.offsetHeight;
+      cell.style.transition = "transform 0.45s ease-in";
       cell.style.transform = `translateY(${distance}px)`;
-      // 延遲回到原位
       setTimeout(() => {
         cell.style.transition = "";
         cell.style.transform = "";
-      }, 400);
+      }, 450);
     }
   });
 
-  // 等動畫跑完再重繪
+  // 動畫結束後回調
   setTimeout(() => {
-    renderBoard();
-  }, 420);
-
-  return moved;
+    if (callback) callback(moved);
+  }, 460);
 }
-
-function refillBoard(){
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(board[r][c]===null){
+  
+function refillBoard() {
+  // 🔹 先補上新的圖案，但設置為從上方掉入
+  const cellsToDrop = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] === null) {
         board[r][c] = randomIcon();
+        cellsToDrop.push({ r, c });
       }
     }
   }
+
   renderBoard();
+
+  // 🔸讓新圖案從上方滑入
+  cellsToDrop.forEach(({ r, c }) => {
+    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+    if (cell) {
+      const distance = -cell.offsetHeight * (Math.random() * 1.2 + 0.8); // 從上方隨機高度滑入
+      cell.style.transform = `translateY(${distance}px)`;
+      cell.style.transition = "none";
+      setTimeout(() => {
+        cell.style.transition = "transform 0.45s ease-in";
+        cell.style.transform = "translateY(0)";
+      }, 10);
+    }
+  });
 }
 
-function handleMatches(matches){
+function handleMatches(matches) {
   clearMatches(matches);
-  setTimeout(()=>{
-    let moved = applyGravity();
-    setTimeout(()=>{
-      refillBoard();
-      const newMatches = checkMatches();
-      if(newMatches.length>0) handleMatches(newMatches);
-      else if(!hasPossibleMoves()) gameOver();
-    }, moved? 250:0);
-  },350);
+
+  // 讓配對成功的圖案淡出後再下落
+  setTimeout(() => {
+    applyGravity((moved) => {
+      // 滑落結束後再補新圖
+      setTimeout(() => {
+        refillBoard();
+        // 再檢查是否還能連鎖
+        setTimeout(() => {
+          const newMatches = checkMatches();
+          if (newMatches.length > 0) handleMatches(newMatches);
+          else if (!hasPossibleMoves()) gameOver();
+        }, 500);
+      }, 450);
+    });
+  }, 300);
 }
+
 
 function showPlusEffect(r,c){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
@@ -347,6 +378,7 @@ initBoard();
 
 </body>
 </html>
+
 
 
 
