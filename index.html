@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 4</title>
+<title>喵嗚消消樂 8x8 分數加倍</title>
 <style>
 body {
   text-align: center;
@@ -14,7 +14,6 @@ body {
   padding: 0;
   overflow-x: hidden;
 }
-
 #game {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -28,7 +27,6 @@ body {
   position: relative;
   touch-action: none;
 }
-
 .cell {
   width: 100%;
   height: 100%;
@@ -39,17 +37,14 @@ body {
   position: relative;
   transition: transform 0.5s ease, background-image 0.5s ease;
 }
-
 .cell.dragging {
   transform: scale(1.2);
   z-index: 10;
 }
-
 .score {
   font-size: 5vw;
   margin-top: 3vw;
 }
-
 .plus-text {
   position: fixed;
   font-size: 4vw;
@@ -58,12 +53,10 @@ body {
   animation: floatUp 0.8s ease-out forwards;
   pointer-events: none;
 }
-
 @keyframes floatUp {
   0% {opacity:1; transform:translateY(0);}
   100% {opacity:0; transform:translateY(-40px);}
 }
-
 @media (min-width: 600px) {
   .score { font-size: 22px; }
   .plus-text { font-size: 18px; }
@@ -89,6 +82,7 @@ function randomIcon() {
   return icons[Math.floor(Math.random() * icons.length)];
 }
 
+// 初始化棋盤，確保沒有三連以上
 function initBoard() {
   do {
     board = [];
@@ -99,10 +93,11 @@ function initBoard() {
       }
       board.push(row);
     }
-  } while (checkMatches().length > 0);
+  } while (checkMatches(true).length > 0); // true → 返回所有群組
   renderBoard();
 }
 
+// 渲染棋盤
 function renderBoard() {
   game.innerHTML = "";
   for (let r = 0; r < rows; r++) {
@@ -119,7 +114,6 @@ function renderBoard() {
 }
 
 let startRow, startCol, currentCell;
-
 function addDragEvents(cell) {
   cell.addEventListener("mousedown", dragStart);
   cell.addEventListener("touchstart", dragStart, {passive:false});
@@ -150,17 +144,13 @@ function dragMove(e) {
   const dr = Math.abs(endRow - startRow);
   const dc = Math.abs(endCol - startCol);
 
-  // 只允許一次交換
-  if ((dr + dc) === 1) {
-    // 播放交換動畫
+  if ((dr + dc) === 1) { // 只允許交換鄰格
     swapCells(startRow, startCol, endRow, endCol, () => {
-      // 動畫結束後再檢查是否有消除
-      const matches = checkMatches();
+      const matches = checkMatches(true);
       if (matches.length > 0) {
-        handleMatches(matches);
+        handleMatches(matches, 1); // combo = 1
       } else {
-        // 沒有消除 → 換回原來位置
-        swapCells(startRow, startCol, endRow, endCol);
+        swapCells(startRow, startCol, endRow, endCol); // 換回原位
       }
     });
     dragEnd();
@@ -176,6 +166,7 @@ function dragEnd() {
   document.removeEventListener("touchend", dragEnd);
 }
 
+// 動畫交換
 function swapCells(r1, c1, r2, c2, callback) {
   const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
   const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
@@ -186,99 +177,96 @@ function swapCells(r1, c1, r2, c2, callback) {
   const moveX = dx * cell1.offsetWidth;
   const moveY = dy * cell1.offsetHeight;
 
-  // 移動動畫
   cell1.style.transition = "transform 0.25s ease";
   cell2.style.transition = "transform 0.25s ease";
   cell1.style.transform = `translate(${moveX}px, ${moveY}px)`;
   cell2.style.transform = `translate(${-moveX}px, ${-moveY}px)`;
 
-  // 動畫結束後真正交換資料
   setTimeout(() => {
     cell1.style.transition = "";
     cell2.style.transition = "";
     cell1.style.transform = "";
     cell2.style.transform = "";
-
     [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
     renderBoard();
-    if (callback) callback(); // 🔹動畫結束後執行後續邏輯
+    if (callback) callback();
   }, 250);
 }
 
-function checkMatches() {
-  const matchGroups = [];
+// 檢查消除，回傳群組
+function checkMatches(returnGroups=false){
+  const matches = [];
+  const groups = [];
 
-  // 橫向檢查
-  for (let r = 0; r < rows; r++) {
+  // 橫向
+  for (let r=0;r<rows;r++){
     let count = 1;
-    for (let c = 1; c < cols; c++) {
-      if (board[r][c] === board[r][c - 1]) {
-        count++;
-      } else {
-        if (count >= 3) {
+    for (let c=1;c<cols;c++){
+      if(board[r][c]===board[r][c-1]) count++;
+      else {
+        if(count>=3){
           const group = [];
-          for (let k = c - count; k < c; k++) group.push([r, k]);
-          matchGroups.push(group);
+          for(let k=c-count;k<c;k++){
+            group.push([r,k]);
+          }
+          groups.push(group);
         }
-        count = 1;
+        count=1;
       }
     }
-    if (count >= 3) {
-      const group = [];
-      for (let k = cols - count; k < cols; k++) group.push([r, k]);
-      matchGroups.push(group);
+    if(count>=3){
+      const group=[];
+      for(let k=cols-count;k<cols;k++) group.push([r,k]);
+      groups.push(group);
     }
   }
 
-  // 縱向檢查
-  for (let c = 0; c < cols; c++) {
-    let count = 1;
-    for (let r = 1; r < rows; r++) {
-      if (board[r][c] === board[r - 1][c]) {
-        count++;
-      } else {
-        if (count >= 3) {
-          const group = [];
-          for (let k = r - count; k < r; k++) group.push([k, c]);
-          matchGroups.push(group);
+  // 縱向
+  for (let c=0;c<cols;c++){
+    let count=1;
+    for(let r=1;r<rows;r++){
+      if(board[r][c]===board[r-1][c]) count++;
+      else{
+        if(count>=3){
+          const group=[];
+          for(let k=r-count;k<r;k++) group.push([k,c]);
+          groups.push(group);
         }
-        count = 1;
+        count=1;
       }
     }
-    if (count >= 3) {
-      const group = [];
-      const group = [];
-      for (let k = rows - count; k < rows; k++) group.push([k, c]);
-      matchGroups.push(group);
+    if(count>=3){
+      const group=[];
+      for(let k=rows-count;k<rows;k++) group.push([k,c]);
+      groups.push(group);
     }
   }
 
-  return matchGroups;
+  return returnGroups ? groups : groups.flat();
 }
 
+// 清除消除群組並計分
+function clearMatches(groups, combo=1){
+  groups.forEach(group=>{
+    const len = group.length;
+    let points=0;
+    if(len===3) points = 1*len;
+    else if(len===4) points = 2*len;
+    else if(len>=5) points = 3*len;
+    points *= combo;
 
-function clearMatches(matchGroups, comboMultiplier = 1){
-  matchGroups.forEach(group => {
-    const len = group.length; // 這組消除幾個
-    let points = 0;
-    if(len === 3) points = 1 * len;
-    else if(len === 4) points = 2 * len;
-    else if(len >=5) points = 3 * len;
-
-    points *= comboMultiplier; // 連消加倍
-
-    group.forEach(([r,c]) => {
-      board[r][c] = null;
+    group.forEach(([r,c])=>{
+      board[r][c]=null;
       showPlusEffect(r,c);
     });
-
     score += points;
   });
-
   scoreEl.textContent = score;
 }
+
+// 重力下落
 function applyGravity(){
-  let moved = false;
+  let moved=false;
   for(let c=0;c<cols;c++){
     for(let r=rows-1;r>=0;r--){
       if(board[r][c]===null){
@@ -286,8 +274,8 @@ function applyGravity(){
         while(upper>=0 && board[upper][c]===null) upper--;
         if(upper>=0){
           board[r][c] = board[upper][c];
-          board[upper][c] = null;
-          moved = true;
+          board[upper][c]=null;
+          moved=true;
         }
       }
     }
@@ -296,29 +284,30 @@ function applyGravity(){
   return moved;
 }
 
+// 補滿棋盤
 function refillBoard(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(board[r][c]===null){
-        board[r][c] = randomIcon();
-      }
+      if(board[r][c]===null) board[r][c] = randomIcon();
     }
   }
   renderBoard();
 }
 
-function handleMatches(matches, combo = 1){
-  clearMatches(matches, combo);
+// 處理消除並連鎖
+function handleMatches(groups, combo=1){
+  clearMatches(groups, combo);
   setTimeout(()=>{
-    let moved = applyGravity();
+    const moved = applyGravity();
     setTimeout(()=>{
       refillBoard();
-      const newMatches = checkMatches();
-      if(newMatches.length>0) handleMatches(newMatches, combo+1); // 下一次連消加倍
+      const newGroups = checkMatches(true);
+      if(newGroups.length>0) handleMatches(newGroups, combo+1);
       else if(!hasPossibleMoves()) gameOver();
     }, moved? 250:0);
   },350);
 }
+
 function showPlusEffect(r,c){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if(!cell) return;
@@ -332,11 +321,12 @@ function showPlusEffect(r,c){
   setTimeout(()=>plus.remove(),800);
 }
 
+// 檢查是否還有可交換
 function hasPossibleMoves(){
   for(let r=0;r<rows;r++){
     for(let c=0;c<cols;c++){
-      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c); }
-      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1); }
+      if(r<rows-1){ swapCellsSimple(r,c,r+1,c); if(checkMatches().length>0){ swapCellsSimple(r,c,r+1,c); return true;} swapCellsSimple(r,c,r+1,c);}
+      if(c<cols-1){ swapCellsSimple(r,c,r,c+1); if(checkMatches().length>0){ swapCellsSimple(r,c,r,c+1); return true;} swapCellsSimple(r,c,r,c+1);}
     }
   }
   return false;
@@ -355,4 +345,3 @@ initBoard();
 
 </body>
 </html>
-
