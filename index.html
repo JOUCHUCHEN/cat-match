@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 3</title>
+<title>喵嗚消消樂 8x8 4</title>
 <style>
 body {
   text-align: center;
@@ -206,40 +206,77 @@ function swapCells(r1, c1, r2, c2, callback) {
 }
 
 function checkMatches() {
-  const matches = [];
-  for (let r=0;r<rows;r++){
+  const matchGroups = [];
+
+  // 橫向檢查
+  for (let r = 0; r < rows; r++) {
     let count = 1;
-    for (let c=1;c<cols;c++){
-      if(board[r][c]===board[r][c-1]) count++;
-      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
+    for (let c = 1; c < cols; c++) {
+      if (board[r][c] === board[r][c - 1]) {
+        count++;
+      } else {
+        if (count >= 3) {
+          const group = [];
+          for (let k = c - count; k < c; k++) group.push([r, k]);
+          matchGroups.push(group);
+        }
+        count = 1;
+      }
     }
-    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
-  }
-  for (let c=0;c<cols;c++){
-    let count=1;
-    for(let r=1;r<rows;r++){
-      if(board[r][c]===board[r-1][c]) count++;
-      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
+    if (count >= 3) {
+      const group = [];
+      for (let k = cols - count; k < cols; k++) group.push([r, k]);
+      matchGroups.push(group);
     }
-    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
   }
-  return matches;
+
+  // 縱向檢查
+  for (let c = 0; c < cols; c++) {
+    let count = 1;
+    for (let r = 1; r < rows; r++) {
+      if (board[r][c] === board[r - 1][c]) {
+        count++;
+      } else {
+        if (count >= 3) {
+          const group = [];
+          for (let k = r - count; k < r; k++) group.push([k, c]);
+          matchGroups.push(group);
+        }
+        count = 1;
+      }
+    }
+    if (count >= 3) {
+      const group = [];
+      const group = [];
+      for (let k = rows - count; k < rows; k++) group.push([k, c]);
+      matchGroups.push(group);
+    }
+  }
+
+  return matchGroups;
 }
 
-function clearMatches(matches){
-  const cleared = new Set();
-  matches.forEach(([r,c])=>{
-    const key = r+'-'+c;
-    if(!cleared.has(key)){
+
+function clearMatches(matchGroups, comboMultiplier = 1){
+  matchGroups.forEach(group => {
+    const len = group.length; // 這組消除幾個
+    let points = 0;
+    if(len === 3) points = 1 * len;
+    else if(len === 4) points = 2 * len;
+    else if(len >=5) points = 3 * len;
+
+    points *= comboMultiplier; // 連消加倍
+
+    group.forEach(([r,c]) => {
       board[r][c] = null;
       showPlusEffect(r,c);
-      cleared.add(key);
-    }
+    });
+
+    score += points;
   });
-  score += cleared.size;
+
   scoreEl.textContent = score;
 }
-
 function applyGravity(){
   let moved = false;
   for(let c=0;c<cols;c++){
@@ -270,19 +307,18 @@ function refillBoard(){
   renderBoard();
 }
 
-function handleMatches(matches){
-  clearMatches(matches);
+function handleMatches(matches, combo = 1){
+  clearMatches(matches, combo);
   setTimeout(()=>{
     let moved = applyGravity();
     setTimeout(()=>{
       refillBoard();
       const newMatches = checkMatches();
-      if(newMatches.length>0) handleMatches(newMatches);
+      if(newMatches.length>0) handleMatches(newMatches, combo+1); // 下一次連消加倍
       else if(!hasPossibleMoves()) gameOver();
     }, moved? 250:0);
   },350);
 }
-
 function showPlusEffect(r,c){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if(!cell) return;
@@ -319,3 +355,4 @@ initBoard();
 
 </body>
 </html>
+
