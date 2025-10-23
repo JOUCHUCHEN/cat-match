@@ -37,7 +37,7 @@ body {
   border-radius: 10%;
   cursor: grab;
   position: relative;
-  transition: transform 0.35s ease, background-image 0.35s ease;
+  transition: transform 0.5s ease, background-image 0.5s ease; /* 下落與交換動畫 0.5s */
 }
 
 .cell.dragging {
@@ -152,15 +152,48 @@ function dragMove(e) {
 
   // 只允許一次交換
   if ((dr + dc) === 1) {
-    swapCells(startRow, startCol, endRow, endCol);
+    animateSwap(startRow, startCol, endRow, endCol);
+  }
+}
+
+function animateSwap(r1, c1, r2, c2) {
+  const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
+  const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
+
+  if (!cell1 || !cell2) return;
+
+  // 先加上動畫偏移
+  const dx = c2 - c1;
+  const dy = r2 - r1;
+  const moveX = dx * cell1.offsetWidth;
+  const moveY = dy * cell1.offsetHeight;
+
+  cell1.style.transition = "transform 0.2s ease";
+  cell2.style.transition = "transform 0.2s ease";
+  cell1.style.transform = `translate(${moveX}px, ${moveY}px)`;
+  cell2.style.transform = `translate(${-moveX}px, ${-moveY}px)`;
+
+  setTimeout(() => {
+    // 完成動畫後交換
+    swapCells(r1, c1, r2, c2);
+    cell1.style.transition = "";
+    cell2.style.transition = "";
+    cell1.style.transform = "";
+    cell2.style.transform = "";
+
     const matches = checkMatches();
     if (matches.length > 0) {
       handleMatches(matches);
     } else {
-      swapCells(startRow, startCol, endRow, endCol);
+      // 若沒匹配，動畫回原位
+      cell1.style.transform = "";
+      cell2.style.transform = "";
+      setTimeout(() => {
+        swapCells(r1, c1, r2, c2); // 換回原位
+      }, 200);
     }
     dragEnd();
-  }
+  }, 200);
 }
 
 function dragEnd() {
@@ -179,36 +212,50 @@ function swapCells(r1,c1,r2,c2){
 
 function checkMatches() {
   const matches = [];
+  // 橫向
   for (let r=0;r<rows;r++){
     let count = 1;
     for (let c=1;c<cols;c++){
       if(board[r][c]===board[r][c-1]) count++;
-      else { if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k]); count=1; }
+      else {
+        if(count>=3) for(let k=c-count;k<c;k++) matches.push([r,k,count]);
+        count=1;
+      }
     }
-    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k]);
+    if(count>=3) for(let k=cols-count;k<cols;k++) matches.push([r,k,count]);
   }
+  // 縱向
   for (let c=0;c<cols;c++){
     let count=1;
     for(let r=1;r<rows;r++){
       if(board[r][c]===board[r-1][c]) count++;
-      else{ if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c]); count=1; }
+      else{
+        if(count>=3) for(let k=r-count;k<r;k++) matches.push([k,c,count]);
+        count=1;
+      }
     }
-    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c]);
+    if(count>=3) for(let k=rows-count;k<rows;k++) matches.push([k,c,count]);
   }
   return matches;
 }
 
 function clearMatches(matches){
-  const cleared = new Set();
-  matches.forEach(([r,c])=>{
+  const cleared = new Map();
+  matches.forEach(([r,c,count])=>{
     const key = r+'-'+c;
     if(!cleared.has(key)){
       board[r][c] = null;
-      showPlusEffect(r,c);
-      cleared.add(key);
+      showPlusEffect(r,c,count);
+      cleared.set(key, count);
     }
   });
-  score += cleared.size;
+
+  // ✨依據連線長度加分
+  cleared.forEach((count)=>{
+    if(count===3) score += 1;      // 每個 +1
+    else if(count===4) score += 2; // 每個 +2
+    else if(count>=5) score += 3;  // 每個 +3
+  });
   scoreEl.textContent = score;
 }
 
@@ -252,16 +299,21 @@ function handleMatches(matches){
       if(newMatches.length>0) handleMatches(newMatches);
       else if(!hasPossibleMoves()) gameOver();
     }, moved? 250:0);
-  },350);
+  },500); // ⏳ 下落延遲 0.5 秒
 }
 
-function showPlusEffect(r,c){
+function showPlusEffect(r,c,count){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
   if(!cell) return;
   const rect=cell.getBoundingClientRect();
   const plus=document.createElement("div");
   plus.classList.add("plus-text");
-  plus.textContent="+1";
+
+  // 依連線長度顯示不同
+  if(count>=5) plus.textContent="+3";
+  else if(count===4) plus.textContent="+2";
+  else plus.textContent="+1";
+
   plus.style.left=rect.left+"px";
   plus.style.top=rect.top+"px";
   document.body.appendChild(plus);
