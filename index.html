@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 分數加倍+動畫</title>
+<title>喵嗚消消樂 8x8 分數加倍+動畫1</title>
 <style>
 body {
   text-align: center;
@@ -218,18 +218,17 @@ function checkMatches(returnGroups=false){
 // 清除群組+分數動畫
 function clearMatches(groups, combo=1){
   groups.forEach(group=>{
+    let singleScore = 0;
     const len = group.length;
-    let points=0;
-    if(len===3) points = 1*len;
-    else if(len===4) points = 2*len;
-    else if(len>=5) points = 3*len;
-    points *= combo;
+    if(len===3) singleScore = 1;
+    else if(len===4) singleScore = 2;
+    else if(len>=5) singleScore = 3;
 
     group.forEach(([r,c])=>{
-      board[r][c]=null;
-      showPlusEffect(r,c,points); // 顯示分數動畫
+      board[r][c] = null;
+      showPlusEffect(r, c, singleScore); // 每個格子顯示單顆分數
+      score += singleScore * combo;      // 實際累計分數加上連鎖倍數
     });
-    score += points;
   });
   scoreEl.textContent = score;
 }
@@ -241,7 +240,7 @@ function showPlusEffect(r,c,points){
   const rect = cell.getBoundingClientRect();
   const plus = document.createElement("div");
   plus.classList.add("plus-text");
-  plus.textContent = `+${points}`;
+  plus.textContent = `+${points}`; // 顯示單格分數
   plus.style.left = rect.left + "px";
   plus.style.top = rect.top + "px";
   document.body.appendChild(plus);
@@ -312,3 +311,4 @@ initBoard();
 
 </body>
 </html>
+
