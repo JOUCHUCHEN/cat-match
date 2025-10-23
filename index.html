@@ -37,7 +37,7 @@ body {
   border-radius: 10%;
   cursor: grab;
   position: relative;
-  transition: transform 0.35s ease, background-image 0.35s ease;
+  transition: transform 0.5s ease, background-image 0.5s ease;
 }
 
 .cell.dragging {
@@ -172,9 +172,36 @@ function dragEnd() {
   document.removeEventListener("touchend", dragEnd);
 }
 
-function swapCells(r1,c1,r2,c2){
-  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
-  renderBoard();
+function swapCells(r1, c1, r2, c2) {
+  // 先抓出兩個要交換的 cell
+  const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
+  const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
+
+  if (!cell1 || !cell2) return;
+
+  // 計算移動方向
+  const dx = c2 - c1;
+  const dy = r2 - r1;
+  const moveX = dx * cell1.offsetWidth;
+  const moveY = dy * cell1.offsetHeight;
+
+  // 加上移動動畫（使用 transform）
+  cell1.style.transition = "transform 0.25s ease";
+  cell2.style.transition = "transform 0.25s ease";
+
+  cell1.style.transform = `translate(${moveX}px, ${moveY}px)`;
+  cell2.style.transform = `translate(${-moveX}px, ${-moveY}px)`;
+
+  // 等動畫結束再真的交換資料 & 重繪
+  setTimeout(() => {
+    cell1.style.transition = "";
+    cell2.style.transition = "";
+    cell1.style.transform = "";
+    cell2.style.transform = "";
+
+    [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+    renderBoard();
+  }, 250);
 }
 
 function checkMatches() {
@@ -291,3 +318,4 @@ initBoard();
 
 </body>
 </html>
+
