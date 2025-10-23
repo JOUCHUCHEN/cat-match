@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 3</title>
+<title>喵嗚消消樂 8x8 4</title>
 <style>
 body {
   text-align: center;
@@ -240,22 +240,56 @@ function clearMatches(matches){
   scoreEl.textContent = score;
 }
 
-function applyGravity(){
+function applyGravity() {
+  const cellSize = game.clientWidth / cols; // 每格高度
+  const fallDuration = 500; // 掉落動畫時間 (毫秒)
   let moved = false;
-  for(let c=0;c<cols;c++){
-    for(let r=rows-1;r>=0;r--){
-      if(board[r][c]===null){
-        let upper = r-1;
-        while(upper>=0 && board[upper][c]===null) upper--;
-        if(upper>=0){
-          board[r][c] = board[upper][c];
-          board[upper][c] = null;
-          moved = true;
-        }
+
+  // 建立一個新的盤面以便追蹤新位置
+  const newBoard = Array.from({ length: rows }, () => Array(cols).fill(null));
+
+  for (let c = 0; c < cols; c++) {
+    let emptyRow = rows - 1;
+    for (let r = rows - 1; r >= 0; r--) {
+      if (board[r][c] !== null) {
+        newBoard[emptyRow][c] = board[r][c];
+        if (emptyRow !== r) moved = true;
+        emptyRow--;
       }
     }
+    // 從上方補新圖案
+    while (emptyRow >= 0) {
+      newBoard[emptyRow][c] = randomIcon();
+      emptyRow--;
+    }
   }
-  renderBoard();
+
+  // 在畫面中執行動畫
+  const cells = document.querySelectorAll(".cell");
+  cells.forEach(cell => {
+    const r = +cell.dataset.row;
+    const c = +cell.dataset.col;
+    const icon = board[r][c];
+    if (!icon) return;
+
+    // 找出它掉到的新位置
+    let newR = r;
+    while (newR + 1 < rows && newBoard[newR + 1][c] === icon && board[newR + 1][c] === null) {
+      newR++;
+    }
+    const distance = (newR - r) * cellSize;
+    if (distance > 0) {
+      cell.style.transition = `transform ${fallDuration}ms ease`;
+      cell.style.transform = `translateY(${distance}px)`;
+    }
+  });
+
+  // 動畫結束後更新 board 並重繪
+  setTimeout(() => {
+    board = newBoard;
+    renderBoard();
+  }, fallDuration);
+
   return moved;
 }
 
@@ -319,3 +353,4 @@ initBoard();
 
 </body>
 </html>
+
