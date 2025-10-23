@@ -240,22 +240,50 @@ function clearMatches(matches){
   scoreEl.textContent = score;
 }
 
-function applyGravity(){
+function applyGravity() {
   let moved = false;
-  for(let c=0;c<cols;c++){
-    for(let r=rows-1;r>=0;r--){
-      if(board[r][c]===null){
-        let upper = r-1;
-        while(upper>=0 && board[upper][c]===null) upper--;
-        if(upper>=0){
-          board[r][c] = board[upper][c];
-          board[upper][c] = null;
-          moved = true;
-        }
+  const cells = document.querySelectorAll(".cell");
+
+  // 建立一個下落距離的紀錄
+  const fallDistance = Array(rows).fill(null).map(() => Array(cols).fill(0));
+
+  for (let c = 0; c < cols; c++) {
+    let emptyRow = null;
+    for (let r = rows - 1; r >= 0; r--) {
+      if (board[r][c] === null) {
+        if (emptyRow === null) emptyRow = r;
+      } else if (emptyRow !== null) {
+        // 有空格在下面，讓上面的往下掉
+        board[emptyRow][c] = board[r][c];
+        board[r][c] = null;
+        fallDistance[emptyRow][c] = emptyRow - r;
+        emptyRow--;
+        moved = true;
       }
     }
   }
-  renderBoard();
+
+  // 套用滑落動畫
+  cells.forEach(cell => {
+    const r = +cell.dataset.row;
+    const c = +cell.dataset.col;
+    if (fallDistance[r][c] > 0) {
+      const distance = fallDistance[r][c] * cell.offsetHeight * 1.1; // 位移距離
+      cell.style.transition = "transform 0.4s ease-out";
+      cell.style.transform = `translateY(${distance}px)`;
+      // 延遲回到原位
+      setTimeout(() => {
+        cell.style.transition = "";
+        cell.style.transform = "";
+      }, 400);
+    }
+  });
+
+  // 等動畫跑完再重繪
+  setTimeout(() => {
+    renderBoard();
+  }, 420);
+
   return moved;
 }
 
@@ -319,6 +347,7 @@ initBoard();
 
 </body>
 </html>
+
 
 
 
