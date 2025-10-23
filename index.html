@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 6</title>
+<title>喵嗚消消樂 8x8 3</title>
 <style>
 body {
   text-align: center;
@@ -226,19 +226,13 @@ function checkMatches() {
   return matches;
 }
 
-function clearMatches(matches) {
+function clearMatches(matches){
   const cleared = new Set();
-  matches.forEach(([r, c]) => {
-    const key = r + '-' + c;
-    if (!cleared.has(key)) {
-      const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-      if (cell) {
-        // 🔸淡出動畫
-        cell.style.transition = "opacity 0.3s ease";
-        cell.style.opacity = "0";
-        showPlusEffect(r, c);
-      }
+  matches.forEach(([r,c])=>{
+    const key = r+'-'+c;
+    if(!cleared.has(key)){
       board[r][c] = null;
+      showPlusEffect(r,c);
       cleared.add(key);
     }
   });
@@ -246,78 +240,47 @@ function clearMatches(matches) {
   scoreEl.textContent = score;
 }
 
-
-function applyGravity(callback) {
-  const fallTasks = [];
-  const cells = Array.from(document.querySelectorAll(".cell"));
-  const height = cells[0].offsetHeight;
-
-  for (let c = 0; c < cols; c++) {
-    let emptyRow = null;
-    for (let r = rows - 1; r >= 0; r--) {
-      if (board[r][c] === null) {
-        if (emptyRow === null) emptyRow = r;
-      } else if (emptyRow !== null) {
-        // 要下落的距離
-        const distance = emptyRow - r;
-        board[emptyRow][c] = board[r][c];
-        board[r][c] = null;
-        fallTasks.push({ from: r, to: emptyRow, col: c, distance });
-        emptyRow--;
-      }
-    }
-  }
-
-  // 執行下落動畫
-  fallTasks.forEach(task => {
-    const cell = document.querySelector(`.cell[data-row="${task.from}"][data-col="${task.col}"]`);
-    if (cell) {
-      cell.style.transition = "transform 0.35s ease-in";
-      cell.style.transform = `translateY(${task.distance * height}px)`;
-    }
-  });
-
-  // 等動畫結束後再更新畫面
-  setTimeout(() => {
-    fallTasks.forEach(task => {
-      const cell = document.querySelector(`.cell[data-row="${task.from}"][data-col="${task.col}"]`);
-      if (cell) {
-        cell.style.transition = "";
-        cell.style.transform = "";
-        cell.dataset.row = task.to;
-        cell.style.backgroundImage = `url("${board[task.to][task.col]}")`;
-      }
-    });
-    if (callback) callback();
-  }, 360);
-}
-
-  
-function refillBoard(callback) {
-  const height = document.querySelector(".cell").offsetHeight;
-  const newCells = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (board[r][c] === null) {
-        const icon = randomIcon();
-        board[r][c] = icon;
-        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-        if (cell) {
-          cell.style.transition = "none";
-          cell.style.transform = `translateY(${-height}px)`; // 從上方掉下
-          setTimeout(() => {
-            cell.style.transition = "transform 0.35s ease-in";
-            cell.style.backgroundImage = `url("${icon}")`;
-            cell.style.transform = "translateY(0)";
-          }, 30);
-          newCells.push(cell);
+function applyGravity(){
+  let moved = false;
+  for(let c=0;c<cols;c++){
+    for(let r=rows-1;r>=0;r--){
+      if(board[r][c]===null){
+        let upper = r-1;
+        while(upper>=0 && board[upper][c]===null) upper--;
+        if(upper>=0){
+          board[r][c] = board[upper][c];
+          board[upper][c] = null;
+          moved = true;
         }
       }
     }
   }
-  setTimeout(() => {
-    if (callback) callback();
-  }, 400);
+  renderBoard();
+  return moved;
+}
+
+function refillBoard(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      if(board[r][c]===null){
+        board[r][c] = randomIcon();
+      }
+    }
+  }
+  renderBoard();
+}
+
+function handleMatches(matches){
+  clearMatches(matches);
+  setTimeout(()=>{
+    let moved = applyGravity();
+    setTimeout(()=>{
+      refillBoard();
+      const newMatches = checkMatches();
+      if(newMatches.length>0) handleMatches(newMatches);
+      else if(!hasPossibleMoves()) gameOver();
+    }, moved? 250:0);
+  },350);
 }
 
 function showPlusEffect(r,c){
@@ -356,14 +319,3 @@ initBoard();
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
