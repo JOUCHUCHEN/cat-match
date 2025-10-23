@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 1</title>
+<title>喵嗚消消樂 8x8 2</title>
 <style>
 body {
   text-align: center;
@@ -152,13 +152,17 @@ function dragMove(e) {
 
   // 只允許一次交換
   if ((dr + dc) === 1) {
-    swapCells(startRow, startCol, endRow, endCol);
-    const matches = checkMatches();
-    if (matches.length > 0) {
-      handleMatches(matches);
-    } else {
-      swapCells(startRow, startCol, endRow, endCol);
-    }
+    // 播放交換動畫
+    swapCells(startRow, startCol, endRow, endCol, () => {
+      // 動畫結束後再檢查是否有消除
+      const matches = checkMatches();
+      if (matches.length > 0) {
+        handleMatches(matches);
+      } else {
+        // 沒有消除 → 換回原來位置
+        swapCells(startRow, startCol, endRow, endCol);
+      }
+    });
     dragEnd();
   }
 }
@@ -172,27 +176,23 @@ function dragEnd() {
   document.removeEventListener("touchend", dragEnd);
 }
 
-function swapCells(r1, c1, r2, c2) {
-  // 先抓出兩個要交換的 cell
+function swapCells(r1, c1, r2, c2, callback) {
   const cell1 = document.querySelector(`.cell[data-row="${r1}"][data-col="${c1}"]`);
   const cell2 = document.querySelector(`.cell[data-row="${r2}"][data-col="${c2}"]`);
-
   if (!cell1 || !cell2) return;
 
-  // 計算移動方向
   const dx = c2 - c1;
   const dy = r2 - r1;
   const moveX = dx * cell1.offsetWidth;
   const moveY = dy * cell1.offsetHeight;
 
-  // 加上移動動畫（使用 transform）
+  // 移動動畫
   cell1.style.transition = "transform 0.25s ease";
   cell2.style.transition = "transform 0.25s ease";
-
   cell1.style.transform = `translate(${moveX}px, ${moveY}px)`;
   cell2.style.transform = `translate(${-moveX}px, ${-moveY}px)`;
 
-  // 等動畫結束再真的交換資料 & 重繪
+  // 動畫結束後真正交換資料
   setTimeout(() => {
     cell1.style.transition = "";
     cell2.style.transition = "";
@@ -201,6 +201,7 @@ function swapCells(r1, c1, r2, c2) {
 
     [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
     renderBoard();
+    if (callback) callback(); // 🔹動畫結束後執行後續邏輯
   }, 250);
 }
 
@@ -318,5 +319,6 @@ initBoard();
 
 </body>
 </html>
+
 
 
