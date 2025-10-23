@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>喵嗚消消樂 8x8 5</title>
+<title>喵嗚消消樂 8x8 6</title>
 <style>
 body {
   text-align: center;
@@ -248,99 +248,77 @@ function clearMatches(matches) {
 
 
 function applyGravity(callback) {
-  const fallDistance = Array(rows).fill(null).map(() => Array(cols).fill(0));
-  let moved = false;
+  const fallTasks = [];
+  const cells = Array.from(document.querySelectorAll(".cell"));
+  const height = cells[0].offsetHeight;
 
-  // 計算下落
   for (let c = 0; c < cols; c++) {
     let emptyRow = null;
     for (let r = rows - 1; r >= 0; r--) {
       if (board[r][c] === null) {
         if (emptyRow === null) emptyRow = r;
       } else if (emptyRow !== null) {
+        // 要下落的距離
+        const distance = emptyRow - r;
         board[emptyRow][c] = board[r][c];
         board[r][c] = null;
-        fallDistance[emptyRow][c] = emptyRow - r;
+        fallTasks.push({ from: r, to: emptyRow, col: c, distance });
         emptyRow--;
-        moved = true;
       }
     }
   }
 
-  // 先畫出下落前的畫面
-  renderBoard();
-
-  const cells = document.querySelectorAll(".cell");
-  cells.forEach(cell => {
-    const r = +cell.dataset.row;
-    const c = +cell.dataset.col;
-    const dist = fallDistance[r][c];
-    if (dist > 0) {
-      const distance = dist * cell.offsetHeight;
-      cell.style.transition = "transform 0.45s ease-in";
-      cell.style.transform = `translateY(${distance}px)`;
-      setTimeout(() => {
-        cell.style.transition = "";
-        cell.style.transform = "";
-      }, 450);
+  // 執行下落動畫
+  fallTasks.forEach(task => {
+    const cell = document.querySelector(`.cell[data-row="${task.from}"][data-col="${task.col}"]`);
+    if (cell) {
+      cell.style.transition = "transform 0.35s ease-in";
+      cell.style.transform = `translateY(${task.distance * height}px)`;
     }
   });
 
-  // 動畫結束後回調
+  // 等動畫結束後再更新畫面
   setTimeout(() => {
-    if (callback) callback(moved);
-  }, 460);
+    fallTasks.forEach(task => {
+      const cell = document.querySelector(`.cell[data-row="${task.from}"][data-col="${task.col}"]`);
+      if (cell) {
+        cell.style.transition = "";
+        cell.style.transform = "";
+        cell.dataset.row = task.to;
+        cell.style.backgroundImage = `url("${board[task.to][task.col]}")`;
+      }
+    });
+    if (callback) callback();
+  }, 360);
 }
+
   
-function refillBoard() {
-  // 🔹 先補上新的圖案，但設置為從上方掉入
-  const cellsToDrop = [];
+function refillBoard(callback) {
+  const height = document.querySelector(".cell").offsetHeight;
+  const newCells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (board[r][c] === null) {
-        board[r][c] = randomIcon();
-        cellsToDrop.push({ r, c });
+        const icon = randomIcon();
+        board[r][c] = icon;
+        const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+        if (cell) {
+          cell.style.transition = "none";
+          cell.style.transform = `translateY(${-height}px)`; // 從上方掉下
+          setTimeout(() => {
+            cell.style.transition = "transform 0.35s ease-in";
+            cell.style.backgroundImage = `url("${icon}")`;
+            cell.style.transform = "translateY(0)";
+          }, 30);
+          newCells.push(cell);
+        }
       }
     }
   }
-
-  renderBoard();
-
-  // 🔸讓新圖案從上方滑入
-  cellsToDrop.forEach(({ r, c }) => {
-    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-    if (cell) {
-      const distance = -cell.offsetHeight * (Math.random() * 1.2 + 0.8); // 從上方隨機高度滑入
-      cell.style.transform = `translateY(${distance}px)`;
-      cell.style.transition = "none";
-      setTimeout(() => {
-        cell.style.transition = "transform 0.45s ease-in";
-        cell.style.transform = "translateY(0)";
-      }, 10);
-    }
-  });
-}
-
-function handleMatches(matches) {
-  clearMatches(matches);
-
-  // 讓配對成功的圖案淡出後再下落
   setTimeout(() => {
-    applyGravity((moved) => {
-      // 滑落結束後再補新圖
-      setTimeout(() => {
-        refillBoard();
-        // 再檢查是否還能連鎖
-        setTimeout(() => {
-          const newMatches = checkMatches();
-          if (newMatches.length > 0) handleMatches(newMatches);
-          else if (!hasPossibleMoves()) gameOver();
-        }, 500);
-      }, 450);
-    });
-  }, 300);
+    if (callback) callback();
+  }, 400);
 }
-
 
 function showPlusEffect(r,c){
   const cell=document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
@@ -378,6 +356,7 @@ initBoard();
 
 </body>
 </html>
+
 
 
 
