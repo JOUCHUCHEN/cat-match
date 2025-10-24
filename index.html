@@ -88,9 +88,8 @@ let soundUnlocked = false;
 
 function unlockSounds() {
   if (!soundUnlocked) {
-    // 嘗試播放再暫停，解鎖手機音效
+    // 只播放消除音解鎖，避免和移動音衝突
     clearSound.play().then(() => clearSound.pause()).catch(()=>{});
-    moveSound.play().then(() => moveSound.pause()).catch(()=>{});
     soundUnlocked = true;
   }
 }
@@ -154,9 +153,10 @@ function addDragEvents(cell) {
 
 function dragStart(e) {
   e.preventDefault();
-  
-  unlockSounds();
 
+  unlockSounds(); // 🔑 先解鎖音效
+
+  // 移動音正常播放
   moveSound.currentTime = 0;
   moveSound.play().catch(()=>{});
 
@@ -370,3 +370,5 @@ initBoard();
 
 </body>
 </html>
+
+
