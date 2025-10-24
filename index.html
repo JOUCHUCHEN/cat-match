@@ -90,13 +90,14 @@ h2 {
 let soundUnlocked = false;
 
 function unlockSounds() {
-  if(!soundUnlocked){
-  const sound = clearSound.cloneNode();
-  sound.volume = 0;
-  sound.play().catch(()=>{});
-  sound.pause();
-  soundUnlocked = true;
-}
+  if (!soundUnlocked) {
+    // 使用者互動事件觸發一次靜音播放
+    moveSound.play().catch(()=>{});
+    clearSound.play().catch(()=>{});
+    moveSound.pause();
+    clearSound.pause();
+    soundUnlocked = true;
+  }
 }
 
 function playMoveSound(){
@@ -110,17 +111,13 @@ let clearSoundPlaying = false;
 
 function playClearSound() {
   if (!soundUnlocked) return;
-  if (clearSoundPlaying) return; // 音效正在播放，略過
+  if (clearSoundPlaying) return;
   clearSoundPlaying = true;
 
   clearSound.currentTime = 0;
   clearSound.volume = 1;
-
-  clearSound.play().finally(() => {
-    // 0.2 秒後允許再次播放音效，避免密集消除被忽略
-    setTimeout(() => {
-      clearSoundPlaying = false;
-    }, 200);
+  clearSound.play().finally(()=>{
+    setTimeout(()=>{ clearSoundPlaying = false; }, 200); // 避免連鎖太快被忽略
   });
 }
 
@@ -184,9 +181,7 @@ function addDragEvents(cell) {
 
 function dragStart(e) {
   e.preventDefault();
-
-  unlockSounds(); // 🔑 先解鎖音效
-
+  unlockSounds(); // 🔑 這行必須在任何 setTimeout 或 cloneNode 前
   playMoveSound();
 
   currentCell = e.target;
