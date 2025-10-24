@@ -106,12 +106,22 @@ function playMoveSound(){
   sound.play().catch(()=>{}); // 捕捉播放錯誤
 }
 
-function playClearSound(){
-  if(!soundUnlocked) return; // 確保已解鎖
-  const sound = clearSound.cloneNode(); // 複製新物件
-  sound.volume = 1;
-  sound.currentTime = 0;
-  sound.play().catch(()=>{}); // 直接播放，不用 setTimeout
+let clearSoundPlaying = false;
+
+function playClearSound() {
+  if (!soundUnlocked) return;
+  if (clearSoundPlaying) return; // 音效正在播放，略過
+  clearSoundPlaying = true;
+
+  clearSound.currentTime = 0;
+  clearSound.volume = 1;
+
+  clearSound.play().finally(() => {
+    // 0.2 秒後允許再次播放音效，避免密集消除被忽略
+    setTimeout(() => {
+      clearSoundPlaying = false;
+    }, 200);
+  });
 }
 
 const rows = 8, cols = 8;
@@ -277,10 +287,9 @@ function checkMatches(returnGroups=false){
 // 清除群組+分數動畫
 function clearMatches(groups, combo=1){
   if(groups.length > 0){
-  playClearSound();
-}
+    playClearSound(); // 直接呼叫，不用 cloneNode
+  }
 
-  // 原本的清除和加分程式碼
   const flat = groups.flat().map(([r,c]) => r + "-" + c);
   const overlapCount = flat.filter((v,i,a) => a.indexOf(v) !== i).length;
 
