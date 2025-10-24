@@ -10,7 +10,7 @@
 <style>
 body {
   text-align: center;
-  background: #85C2FF;
+  background: #8FC7FF;
   color: #fff;
   font-family: 'Zen Maru Gothic', sans-serif; /* 使用 Zen Maru Gothic */
   margin: 0;
@@ -91,11 +91,24 @@ let soundUnlocked = false;
 
 function unlockSounds() {
   if (!soundUnlocked) {
-    // 只播放消除音解鎖，避免和移動音衝突
-    clearSound.play().then(() => clearSound.pause()).catch(()=>{});
+    clearSound.volume = 0;        // 靜音播放
+    clearSound.currentTime = 0;
+    clearSound.play().then(() => {
+      clearSound.pause();
+      clearSound.volume = 1;      // 還原音量
+    }).catch(()=>{});
     soundUnlocked = true;
   }
 }
+
+
+function playClearSound(){
+  const sound = clearSound.cloneNode(); // 複製新的音效
+  sound.volume = 1;
+  sound.currentTime = 0;
+  sound.play().catch(()=>{});
+}
+
 
 const rows = 8, cols = 8;
 const icons = ["img/1.png","img/2.png","img/3.png","img/4.png","img/5.png","img/6.png","img/7.png"];
@@ -261,9 +274,8 @@ function checkMatches(returnGroups=false){
 // 清除群組+分數動畫
 function clearMatches(groups, combo=1){
   if(groups.length > 0){
-    clearSound.currentTime = 0;
-    clearSound.play().catch(()=>{});
-  }
+  playClearSound();
+}
 
   // 原本的清除和加分程式碼
   const flat = groups.flat().map(([r,c]) => r + "-" + c);
@@ -373,5 +385,3 @@ initBoard();
 
 </body>
 </html>
-
-
