@@ -107,13 +107,11 @@ function playMoveSound(){
 }
 
 function playClearSound(){
-  if(!soundUnlocked) return;
-  const sound = clearSound.cloneNode();
+  if(!soundUnlocked) return; // 確保已解鎖
+  const sound = clearSound.cloneNode(); // 複製新物件
   sound.volume = 1;
   sound.currentTime = 0;
-  setTimeout(() => {
-    sound.play().catch(()=>{});
-  }, 0);
+  sound.play().catch(()=>{}); // 直接播放，不用 setTimeout
 }
 
 const rows = 8, cols = 8;
