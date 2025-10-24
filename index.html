@@ -107,13 +107,13 @@ function playMoveSound(){
 }
 
 function playClearSound(){
+  if(!soundUnlocked) return;
   const sound = clearSound.cloneNode();
   sound.volume = 1;
   sound.currentTime = 0;
-  const playPromise = sound.play();
-  if(playPromise !== undefined){
-    playPromise.catch(()=>{});
-  }
+  setTimeout(() => {
+    sound.play().catch(()=>{});
+  }, 0);
 }
 
 const rows = 8, cols = 8;
