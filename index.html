@@ -91,7 +91,7 @@ let soundUnlocked = false;
 
 function unlockSounds() {
   if (!soundUnlocked) {
-    // 使用者互動事件觸發一次靜音播放
+    // 直接用原始音效播放一次
     moveSound.play().catch(()=>{});
     clearSound.play().catch(()=>{});
     moveSound.pause();
@@ -100,11 +100,11 @@ function unlockSounds() {
   }
 }
 
-function playMoveSound(){
-  const sound = moveSound.cloneNode(); // 每次生成新物件
-  sound.volume = 1;
-  sound.currentTime = 0;
-  sound.play().catch(()=>{}); // 捕捉播放錯誤
+function playMoveSound() {
+  if (!soundUnlocked) return;
+  moveSound.currentTime = 0;
+  moveSound.volume = 1;
+  moveSound.play().catch(()=>{});
 }
 
 let clearSoundPlaying = false;
