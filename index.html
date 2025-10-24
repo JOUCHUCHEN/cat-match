@@ -90,25 +90,31 @@ h2 {
 let soundUnlocked = false;
 
 function unlockSounds() {
-  if (!soundUnlocked) {
-    clearSound.volume = 0;        // 靜音播放
-    clearSound.currentTime = 0;
-    clearSound.play().then(() => {
-      clearSound.pause();
-      clearSound.volume = 1;      // 還原音量
-    }).catch(()=>{});
-    soundUnlocked = true;
-  }
+  if(!soundUnlocked){
+  const sound = clearSound.cloneNode();
+  sound.volume = 0;
+  sound.play().catch(()=>{});
+  sound.pause();
+  soundUnlocked = true;
+}
 }
 
-
-function playClearSound(){
-  const sound = clearSound.cloneNode(); // 複製新的音效
+function playMoveSound(){
+  const sound = moveSound.cloneNode(); // 每次生成新物件
   sound.volume = 1;
   sound.currentTime = 0;
-  sound.play().catch(()=>{});
+  sound.play().catch(()=>{}); // 捕捉播放錯誤
 }
 
+function playClearSound(){
+  const sound = clearSound.cloneNode();
+  sound.volume = 1;
+  sound.currentTime = 0;
+  const playPromise = sound.play();
+  if(playPromise !== undefined){
+    playPromise.catch(()=>{});
+  }
+}
 
 const rows = 8, cols = 8;
 const icons = ["img/1.png","img/2.png","img/3.png","img/4.png","img/5.png","img/6.png","img/7.png"];
@@ -162,6 +168,7 @@ function renderBoard() {
 }
 
 let startRow, startCol, currentCell;
+
 function addDragEvents(cell) {
   cell.addEventListener("mousedown", dragStart);
   cell.addEventListener("touchstart", dragStart, {passive:false});
@@ -172,9 +179,7 @@ function dragStart(e) {
 
   unlockSounds(); // 🔑 先解鎖音效
 
-  // 移動音正常播放
-  moveSound.currentTime = 0;
-  moveSound.play().catch(()=>{});
+  playMoveSound();
 
   currentCell = e.target;
   currentCell.classList.add("dragging");
