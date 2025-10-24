@@ -43,7 +43,7 @@ body {
 }
 .score {
   font-size: 5vw;
-  margin-top: 3vw;
+  margin-top: 2vw;
 }
 .plus-text {
   position: fixed;
@@ -61,15 +61,40 @@ body {
   .score { font-size: 22px; }
   .plus-text { font-size: 18px; }
 }
+
+h2 {
+  font-size: 6vw;      /* 手機版字體放大，6% 的螢幕寬度 */
+  margin-top: 1vw;     /* 上方間距 */
+  margin-bottom: 0vw;  /* 下方間距 */
+  font-weight: bold;   /* 文字加粗 */
+}
+@media (min-width: 600px) {
+  h2 {
+    font-size: 36px;   /* 桌面版固定字體大小 */
+  }
+}
+
 </style>
 </head>
 <body>
 
-<h2>喵嗚消消樂</h2>
+<h2>Meow Meow 消消樂</h2>
 <div class="score">喵嗚值：<span id="score">0</span></div>
 <div id="game"></div>
 
 <script>
+
+let soundUnlocked = false;
+
+function unlockSounds() {
+  if (!soundUnlocked) {
+    // 嘗試播放再暫停，解鎖手機音效
+    clearSound.play().then(() => clearSound.pause()).catch(()=>{});
+    moveSound.play().then(() => moveSound.pause()).catch(()=>{});
+    soundUnlocked = true;
+  }
+}
+
 const rows = 8, cols = 8;
 const icons = ["img/1.png","img/2.png","img/3.png","img/4.png","img/5.png","img/6.png","img/7.png"];
 let board = [];
@@ -129,6 +154,8 @@ function addDragEvents(cell) {
 
 function dragStart(e) {
   e.preventDefault();
+  
+  unlockSounds();
 
   moveSound.currentTime = 0;
   moveSound.play().catch(()=>{});
@@ -343,5 +370,3 @@ initBoard();
 
 </body>
 </html>
-
-
